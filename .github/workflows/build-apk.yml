@@ -1,0 +1,28 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Apply UI patch
+        run: git apply deck-ui.patch
+
+      - name: Build debug APK
+        run: ./gradlew assembleFreeBundleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: lemuroid-app/build/outputs/apk/**/*.apk
