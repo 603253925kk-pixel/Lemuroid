@@ -1,0 +1,64 @@
+diff --git a/lemuroid-app/src/main/java/com/swordfish/lemuroid/app/mobile/feature/game/HandheldShell.kt b/lemuroid-app/src/main/java/com/swordfish/lemuroid/app/mobile/feature/game/HandheldShell.kt
+new file mode 100644
+index 0000000..8655f7a
+--- /dev/null
++++ b/lemuroid-app/src/main/java/com/swordfish/lemuroid/app/mobile/feature/game/HandheldShell.kt
+@@ -0,0 +1,63 @@
++package com.swordfish.lemuroid.app.mobile.feature.game
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.draw.drawBehind
++import androidx.compose.ui.draw.shadow
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.graphics.Brush
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.StrokeCap
++import androidx.compose.ui.unit.dp
++
++/**
++ * Body colors for the handheld-style shell drawn behind the on-screen controls
++ * in portrait mode.
++ *
++ * All variants are light on purpose: the pad icons in LemuroidPadTheme are dark
++ * and would not be readable on a dark body.
++ */
++enum class ShellStyle(
++    val top: Color,
++    val bottom: Color,
++) {
++    CREAM(Color(0xFFDDD8CE), Color(0xFFC4BEB2)),
++    LAVENDER(Color(0xFFD6D0EE), Color(0xFFB9B1DC)),
++    MINT(Color(0xFFCFE3D6), Color(0xFFB2CDBB)),
++}
++
++/**
++ * The lower half of a handheld console: a rounded body with a soft drop shadow
++ * and a thin highlight along the top edge. Drawn in the area that holds the
++ * touch controls.
++ */
++@Composable
++fun HandheldShellBody(
++    modifier: Modifier = Modifier,
++    style: ShellStyle = ShellStyle.CREAM,
++) {
++    val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
++
++    Box(
++        modifier =
++            modifier
++                .shadow(elevation = 16.dp, shape = shape, clip = false)
++                .clip(shape)
++                .background(Brush.verticalGradient(listOf(style.top, style.bottom)))
++                .drawBehind {
++                    val inset = 28.dp.toPx()
++                    val stroke = 2.dp.toPx()
++                    drawLine(
++                        color = Color.White.copy(alpha = 0.45f),
++                        start = Offset(inset, stroke),
++                        end = Offset(size.width - inset, stroke),
++                        strokeWidth = stroke,
