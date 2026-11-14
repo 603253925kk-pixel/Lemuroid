@@ -48,6 +48,7 @@ data class Game(
     val coverFrontUrl: String?,
     val lastIndexedAt: Long,
     val lastPlayedAt: Long? = null,
+    val totalPlayTimeMillis: Long = 0,
     val isFavorite: Boolean = false,
     val customName: String? = null,
     val customCoverUri: String? = null,
