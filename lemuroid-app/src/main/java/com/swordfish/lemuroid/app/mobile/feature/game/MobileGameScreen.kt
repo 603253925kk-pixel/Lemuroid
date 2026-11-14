@@ -259,6 +259,11 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                             else -> ShellFrameMode.SINGLE
                         },
                     onPositioned = { viewportPosition.value = it },
+                    // Geometry-driven shells size the placeholder to exactly
+                    // the frame rect and fold the cutout into the top margin;
+                    // padding it here as well would double-count the cutout
+                    // and letterbox the game inside its own window.
+                    applyCutoutPadding = screenGeometry == null,
                 )
 
                 if (screenGeometry != null && isDualScreenShell) {
