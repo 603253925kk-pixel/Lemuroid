@@ -15,11 +15,20 @@ object GameScreenLayout {
     const val CONSTRAINTS_GAME_CONTAINER = "gameContainer"
     const val CONSTRAINTS_SHELL_BODY = "shellBody"
     const val CONSTRAINTS_SCREEN_BEZEL = "screenBezel"
+    const val CONSTRAINTS_HINGE_BAND = "hingeBand"
+    const val CONSTRAINTS_SPEAKER_GRILLE = "speakerGrille"
 
     // Native aspect ratio of the GBA screen (240x160). A single wide screen
     // like this one should hug its bezel instead of filling the tall area
     // that suits the stacked dual screens of the DS.
     const val GAME_VIEW_RATIO_GBA = "3:2"
+
+    // Height of the body strip left between the two DS screen windows. The
+    // core stacks both screens in one viewport with the seam at its vertical
+    // center, and the shell fill leaves exactly this much body across the
+    // seam as the hinge band. Kept narrow on purpose: it may only cover the
+    // rows right at the seam, never a meaningful part of either screen.
+    val HINGE_BAND_HEIGHT = 24.dp
 
     fun buildConstraintSet(
         isLandscape: Boolean,
@@ -42,6 +51,8 @@ object GameScreenLayout {
             val bottomContainer = createRefFor(CONSTRAINTS_BOTTOM_CONTAINER)
             val shellBody = createRefFor(CONSTRAINTS_SHELL_BODY)
             val screenBezel = createRefFor(CONSTRAINTS_SCREEN_BEZEL)
+            val hingeBand = createRefFor(CONSTRAINTS_HINGE_BAND)
+            val speakerGrille = createRefFor(CONSTRAINTS_SPEAKER_GRILLE)
 
             val gamePadChain = createHorizontalChain(leftPad, rightPad, chainStyle = ChainStyle.SpreadInside)
 
@@ -89,6 +100,28 @@ object GameScreenLayout {
                 absoluteRight.linkTo(parent.absoluteRight)
                 top.linkTo(leftPad.top)
                 bottom.linkTo(parent.bottom)
+            }
+
+            // Decorative details on the hinge band: centered on the game
+            // view, which is where the seam between the two DS screens sits.
+            constrain(hingeBand) {
+                width = Dimension.fillToConstraints
+                height = Dimension.value(HINGE_BAND_HEIGHT)
+                absoluteLeft.linkTo(gameView.absoluteLeft)
+                absoluteRight.linkTo(gameView.absoluteRight)
+                top.linkTo(gameView.top)
+                bottom.linkTo(gameView.bottom)
+                verticalBias = 0.5f
+            }
+
+            // Speaker grille for single-screen shells: on the body below
+            // the screen, clear of the game view.
+            constrain(speakerGrille) {
+                width = Dimension.wrapContent
+                height = Dimension.wrapContent
+                absoluteLeft.linkTo(parent.absoluteLeft)
+                absoluteRight.linkTo(parent.absoluteRight)
+                top.linkTo(gameView.bottom, margin = 14.dp)
             }
 
             constrain(gamePadChain) {
