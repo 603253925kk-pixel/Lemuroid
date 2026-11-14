@@ -63,6 +63,36 @@ object Migrations {
             }
         }
 
+    val VERSION_11_12: Migration =
+        object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `cheats`(
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `gameId` INTEGER NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `code` TEXT NOT NULL,
+                        `enabled` INTEGER NOT NULL,
+                        `sortIndex` INTEGER NOT NULL, FOREIGN KEY(`gameId`
+                    ) REFERENCES `games`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_cheats_id` ON `cheats` (`id`)
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_cheats_gameId` ON `cheats` (`gameId`)
+                    """.trimIndent(),
+                )
+            }
+        }
+
     private fun migrateGamesTableToVersion10(
         database: SupportSQLiteDatabase,
     ) {
