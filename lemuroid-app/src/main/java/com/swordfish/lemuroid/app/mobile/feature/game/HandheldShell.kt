@@ -396,14 +396,14 @@ fun HandheldHingeBand(modifier: Modifier = Modifier) {
         Text(
             text = "L",
             color = ShellTheme.detailLabel,
-            fontSize = 9.sp,
+            fontSize = 7.5.sp,
             fontWeight = FontWeight.Bold,
         )
         SpeakerDots(count = 5)
         Text(
             text = "R",
             color = ShellTheme.detailLabel,
-            fontSize = 9.sp,
+            fontSize = 7.5.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -443,13 +443,14 @@ enum class ShellFrameMode {
  * its own draw pass for the geometry-driven shells.
  *
  * The placeholder is what the layout measures to position the GL viewport,
- * and this composable keeps the exact modifier chain that measurement has
- * always used (layout id, display-cutout padding, position callback), then
- * adds the frame drawing on the *same* layout node. The frame is therefore
- * painted in the very coordinate system the viewport is reported in: its
- * openings cannot drift from the rendered game, whatever insets the device
- * applies. The frame overhangs the placeholder on every side (drawing is
- * not clipped to the node bounds), forming the bezel around the content.
+ * and this composable keeps the modifier chain that measurement has always
+ * used (layout id, position callback), then adds the frame drawing on the
+ * *same* layout node. The frame is therefore painted in the very coordinate
+ * system the viewport is reported in: its openings cannot drift from the
+ * rendered game. The frame overhangs the placeholder on every side (drawing
+ * is not clipped to the node bounds), forming the bezel around the content.
+ * Generic shells also pad the placeholder by the display-cutout inset; the
+ * geometry-driven shells must not (see [GameViewportShellBox]).
  *
  * In dual-screen mode the content rect holds both DS screens with the seam
  * at its vertical center; the frame leaves two openings and paints the
@@ -460,12 +461,25 @@ enum class ShellFrameMode {
 fun GameViewportShellBox(
     frameMode: ShellFrameMode,
     onPositioned: (Rect) -> Unit,
+    applyCutoutPadding: Boolean = true,
 ) {
+    // The geometry-driven shells (frameMode != NONE) size this placeholder
+    // to exactly the core frame's aspect and fold the display cutout into
+    // the layout's top margin instead: padding here would grow the reported
+    // bounds beyond the sized rect (v3.2 double-counted the cutout that
+    // way, and the renderer letterboxed the frame inside the too-tall
+    // viewport). Generic shells keep the historical cutout padding.
+    val cutoutPadding =
+        if (applyCutoutPadding) {
+            Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
+        } else {
+            Modifier
+        }
     Box(
         modifier =
             Modifier
                 .layoutId(GameScreenLayout.CONSTRAINTS_GAME_VIEW)
-                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
+                .then(cutoutPadding)
                 .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
                 .drawWithContent {
                     if (frameMode != ShellFrameMode.NONE) {
