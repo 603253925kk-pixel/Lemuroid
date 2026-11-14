@@ -1,6 +1,7 @@
 package com.swordfish.touchinput.radial.ui
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -12,10 +13,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.swordfish.touchinput.radial.LocalLemuroidPadTheme
+import androidx.compose.ui.unit.dp
 import gg.padkit.ui.DefaultCrossForeground
 
+private val CrossFill = Color(0xFF35353B)
+private val CrossFillPressed = Color(0xFF17171B)
+private val CrossIcon = Color(0xFFDDD8CE)
+private val CrossIconPressed = Color(0xFFFFFFFF)
+
+/**
+ * Handheld-style cross: the four direction dials and the center pivot share
+ * the same dark fill and sit edge to edge, so together they read as one
+ * solid D-pad cross instead of four separate round buttons.
+ */
 @Composable
 fun LemuroidCrossForeground(
     allowDiagonals: Boolean,
@@ -26,38 +38,51 @@ fun LemuroidCrossForeground(
         directionState = directionState,
         allowDiagonals = allowDiagonals,
         leftDial = {
-            LemuroidCrossButton(it, Icons.Default.KeyboardArrowLeft)
+            LemuroidCrossArmButton(it, Icons.Default.KeyboardArrowLeft)
         },
         rightDial = {
-            LemuroidCrossButton(it, Icons.Default.KeyboardArrowRight)
+            LemuroidCrossArmButton(it, Icons.Default.KeyboardArrowRight)
         },
         topDial = {
-            LemuroidCrossButton(it, Icons.Default.KeyboardArrowUp)
+            LemuroidCrossArmButton(it, Icons.Default.KeyboardArrowUp)
         },
         bottomDial = {
-            LemuroidCrossButton(it, Icons.Default.KeyboardArrowDown)
+            LemuroidCrossArmButton(it, Icons.Default.KeyboardArrowDown)
         },
         foregroundComposite = {
-            LemuroidCompositeForeground(it)
+            LemuroidCrossCenter(it)
         },
     )
 }
 
 @Composable
-private fun LemuroidCrossButton(
+private fun LemuroidCrossArmButton(
     pressedState: State<Boolean>,
     imageVector: ImageVector,
 ) {
-    LemuroidButtonForeground(
-        pressed = pressedState,
-        label = { },
-        icon = {
+    GlassSurface(
+        modifier = Modifier.fillMaxSize().padding(2.dp),
+        cornerRadius = 8.dp,
+        fillColor = if (pressedState.value) CrossFillPressed else CrossFill,
+        shadowColor = Color.Black.copy(alpha = 0.35f),
+        shadowWidth = 3.dp,
+        content = {
             Icon(
                 modifier = Modifier.size(maxWidth * 0.5f, maxHeight * 0.5f),
                 imageVector = imageVector,
                 contentDescription = "",
-                tint = LocalLemuroidPadTheme.current.icons(pressedState.value),
+                tint = if (pressedState.value) CrossIconPressed else CrossIcon,
             )
         },
+    )
+}
+
+@Composable
+private fun LemuroidCrossCenter(pressedState: State<Boolean>) {
+    GlassSurface(
+        modifier = Modifier.fillMaxSize().padding(2.dp),
+        fillColor = if (pressedState.value) CrossFillPressed else CrossFill,
+        shadowColor = Color.Black.copy(alpha = 0.35f),
+        shadowWidth = 3.dp,
     )
 }
