@@ -97,6 +97,13 @@ enum class MainRoute(
         parent = SETTINGS,
         showBottomNavigation = false,
     ),
+    COVER_SEARCH(
+        route = "coversearch/{gameId}",
+        titleId = R.string.cover_search_title,
+        parent = HOME,
+        listOf(navArgument("gameId") { type = NavType.IntType }),
+        showBottomNavigation = false,
+    ),
     ;
 
     val root = root()
