@@ -1,5 +1,6 @@
 package com.swordfish.lemuroid.app.mobile.feature.game
 
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ChainStyle
 import androidx.constraintlayout.compose.ConstraintSet
@@ -30,19 +31,91 @@ object GameScreenLayout {
     // rows right at the seam, never a meaningful part of either screen.
     val HINGE_BAND_HEIGHT = 24.dp
 
+    // Side and top margins of the portrait screen block inside the body.
+    val SCREEN_SIDE_MARGIN = 18.dp
+    val SCREEN_TOP_MARGIN = 18.dp
+
+    /**
+     * Deterministic size of the portrait game viewport, computed from the
+     * display size by [computePortraitScreenGeometry]. The renderer
+     * aspect-fits the core frame into the viewport, so the *content* rect
+     * (the viewport minus the display-cutout padding on the placeholder)
+     * must match the frame aspect exactly: 2:3 for the stacked DS frame,
+     * 3:2 for GBA. [outerHeight] is the placeholder's height including the
+     * cutout inset, so the content left after padding is exactly
+     * [contentWidth] x [contentHeight].
+     */
+    data class PortraitScreenGeometry(
+        val contentWidth: Dp,
+        val contentHeight: Dp,
+        val outerHeight: Dp,
+        val cutoutTop: Dp,
+        val sideMargin: Dp,
+        val topMargin: Dp,
+    )
+
+    /**
+     * Computes the portrait viewport size for the dual-screen (DS) and GBA
+     * shells from the available display size. Screens are sized from the
+     * width (each DS screen is 4:3, both equal; the GBA screen is 3:2) and
+     * capped so the control deck below keeps at least [deckReserve] of
+     * height. Returns null when the display is too small to bother.
+     */
+    fun computePortraitScreenGeometry(
+        maxWidth: Dp,
+        maxHeight: Dp,
+        cutoutTop: Dp,
+        dualScreen: Boolean,
+        deckReserve: Dp,
+    ): PortraitScreenGeometry? {
+        var contentWidth = maxWidth - SCREEN_SIDE_MARGIN * 2
+        var contentHeight =
+            if (dualScreen) {
+                contentWidth * 3 / 2
+            } else {
+                contentWidth * 2 / 3
+            }
+
+        val maxContentHeight = maxHeight - SCREEN_TOP_MARGIN - cutoutTop - deckReserve
+        if (contentHeight > maxContentHeight) {
+            contentHeight = maxContentHeight
+            contentWidth =
+                if (dualScreen) {
+                    contentHeight * 2 / 3
+                } else {
+                    contentHeight * 3 / 2
+                }
+        }
+
+        if (contentWidth <= 0.dp || contentHeight <= 0.dp) return null
+
+        return PortraitScreenGeometry(
+            contentWidth = contentWidth,
+            contentHeight = contentHeight,
+            outerHeight = contentHeight + cutoutTop,
+            cutoutTop = cutoutTop,
+            sideMargin = SCREEN_SIDE_MARGIN,
+            topMargin = SCREEN_TOP_MARGIN,
+        )
+    }
+
     fun buildConstraintSet(
         isLandscape: Boolean,
         allowTouchOverlay: Boolean,
         portraitGameViewRatio: String? = null,
+        portraitScreenGeometry: PortraitScreenGeometry? = null,
     ): ConstraintSet {
         return when {
-            !isLandscape -> buildConstraintSetPortrait(portraitGameViewRatio)
+            !isLandscape -> buildConstraintSetPortrait(portraitGameViewRatio, portraitScreenGeometry)
             allowTouchOverlay -> buildConstraintSetLandscape()
             else -> buildConstraintSetLandscapeNoOverlay()
         }
     }
 
-    private fun buildConstraintSetPortrait(gameViewRatio: String? = null): ConstraintSet {
+    private fun buildConstraintSetPortrait(
+        gameViewRatio: String? = null,
+        screenGeometry: PortraitScreenGeometry? = null,
+    ): ConstraintSet {
         return ConstraintSet {
             val gameView = createRefFor(CONSTRAINTS_GAME_VIEW)
             val leftPad = createRefFor(CONSTRAINTS_LEFT_PAD)
@@ -75,22 +148,34 @@ object GameScreenLayout {
             }
 
             constrain(gameView) {
-                width = Dimension.fillToConstraints
-                height =
+                if (screenGeometry != null) {
+                    // Geometry-driven shells (DS, GBA): the viewport gets an
+                    // exact size computed from the display, so the renderer
+                    // fills it with no letterbox and the shell frame drawn
+                    // inside the placeholder lines up by construction.
+                    width = Dimension.value(screenGeometry.contentWidth)
+                    height = Dimension.value(screenGeometry.outerHeight)
+                    top.linkTo(parent.top, margin = screenGeometry.topMargin)
+                    absoluteLeft.linkTo(parent.absoluteLeft)
+                    absoluteRight.linkTo(parent.absoluteRight)
+                } else {
+                    width = Dimension.fillToConstraints
+                    height =
+                        if (gameViewRatio != null) {
+                            Dimension.ratio(gameViewRatio)
+                        } else {
+                            Dimension.fillToConstraints
+                        }
                     if (gameViewRatio != null) {
-                        Dimension.ratio(gameViewRatio)
-                    } else {
-                        Dimension.fillToConstraints
+                        // Pin the screen to the top of the body; the area below it
+                        // stays as shell, like on a real single-screen handheld.
+                        verticalBias = 0f
                     }
-                if (gameViewRatio != null) {
-                    // Pin the screen to the top of the body; the area below it
-                    // stays as shell, like on a real single-screen handheld.
-                    verticalBias = 0f
+                    top.linkTo(parent.top, margin = 18.dp)
+                    absoluteLeft.linkTo(parent.absoluteLeft, margin = 18.dp)
+                    absoluteRight.linkTo(parent.absoluteRight, margin = 18.dp)
+                    bottom.linkTo(leftPad.top)
                 }
-                top.linkTo(parent.top, margin = 18.dp)
-                absoluteLeft.linkTo(parent.absoluteLeft, margin = 18.dp)
-                absoluteRight.linkTo(parent.absoluteRight, margin = 18.dp)
-                bottom.linkTo(leftPad.top)
             }
 
             constrain(bottomContainer) {
@@ -105,13 +190,31 @@ object GameScreenLayout {
             // Decorative details on the hinge band: centered on the game
             // view, which is where the seam between the two DS screens sits.
             constrain(hingeBand) {
-                width = Dimension.fillToConstraints
-                height = Dimension.value(HINGE_BAND_HEIGHT)
-                absoluteLeft.linkTo(gameView.absoluteLeft)
-                absoluteRight.linkTo(gameView.absoluteRight)
-                top.linkTo(gameView.top)
-                bottom.linkTo(gameView.bottom)
-                verticalBias = 0.5f
+                if (screenGeometry != null) {
+                    // Place the band exactly over the seam of the content
+                    // rect: the placeholder's top plus the cutout inset plus
+                    // half the content height. All values come from the same
+                    // geometry as the viewport, so the band cannot drift.
+                    width = Dimension.value(screenGeometry.contentWidth)
+                    height = Dimension.value(HINGE_BAND_HEIGHT)
+                    absoluteLeft.linkTo(gameView.absoluteLeft)
+                    absoluteRight.linkTo(gameView.absoluteRight)
+                    top.linkTo(
+                        gameView.top,
+                        margin =
+                            screenGeometry.cutoutTop +
+                                screenGeometry.contentHeight / 2 -
+                                HINGE_BAND_HEIGHT / 2,
+                    )
+                } else {
+                    width = Dimension.fillToConstraints
+                    height = Dimension.value(HINGE_BAND_HEIGHT)
+                    absoluteLeft.linkTo(gameView.absoluteLeft)
+                    absoluteRight.linkTo(gameView.absoluteRight)
+                    top.linkTo(gameView.top)
+                    bottom.linkTo(gameView.bottom)
+                    verticalBias = 0.5f
+                }
             }
 
             // Speaker grille for single-screen shells: on the body below
