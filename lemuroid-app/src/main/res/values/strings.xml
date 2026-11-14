@@ -131,8 +131,20 @@
     <string name="game_menu_edit_touch_controls">Edit Controls</string>
     <string name="game_menu_mute_audio">Mute</string>
     <string name="game_menu_fast_forward">Fast-Forward</string>
+    <string name="game_fast_forward_button">Fast forward</string>
     <string name="game_menu_change_disk_disk">Disk %1$s</string>
     <string name="game_menu_tilt_sensor">Tilt Sensor</string>
+    <string name="game_menu_cheats">Cheats</string>
+    <string name="game_menu_cheats_add">Add cheat</string>
+    <string name="game_menu_cheats_edit">Edit cheat</string>
+    <string name="game_menu_cheats_name">Name</string>
+    <string name="game_menu_cheats_code">Code</string>
+    <string name="game_menu_cheats_save">Save</string>
+    <string name="game_menu_cheats_delete">Delete cheat</string>
+    <string name="game_menu_cheats_empty">No cheats yet</string>
+    <string name="game_menu_cheats_hint">Cheats are applied when the game starts. Changes take full effect after restarting the game, since cheats can be stored in save states.</string>
+    <string name="game_menu_cheats_invalid_code">Invalid cheat code</string>
+    <string name="game_menu_cheats_default_name">Cheat %1$s</string>
 
     <string name="game_loading_preparing_game">Preparing game…</string>
 
@@ -140,6 +152,7 @@
     <string name="game_toast_load_state_failed">Cannot load this state</string>
     <string name="game_toast_quick_save_loaded">Quick loaded</string>
     <string name="game_toast_quick_save_saved">Quick saved</string>
+    <string name="game_toast_cheat_error">Failed to apply cheat codes</string>
 
     <string name="empty_view_default">No Items</string>
 
