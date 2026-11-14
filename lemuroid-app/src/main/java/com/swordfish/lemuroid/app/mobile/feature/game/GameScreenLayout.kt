@@ -27,9 +27,12 @@ object GameScreenLayout {
     // Height of the body strip left between the two DS screen windows. The
     // core stacks both screens in one viewport with the seam at its vertical
     // center, and the shell fill leaves exactly this much body across the
-    // seam as the hinge band. Kept narrow on purpose: it may only cover the
-    // rows right at the seam, never a meaningful part of either screen.
-    val HINGE_BAND_HEIGHT = 24.dp
+    // seam as the hinge band. Kept very narrow on purpose: at the DS
+    // viewport's scale (~1.46dp per game pixel on a 375dp-wide viewport)
+    // this covers only ~3 game pixels on either side of the seam, so the
+    // bottom text line of the top screen stays fully readable. The previous
+    // 24dp band ate ~8 game pixels per side and cut that line in half.
+    val HINGE_BAND_HEIGHT = 10.dp
 
     // Side and top margins of the portrait screen block inside the body.
     val SCREEN_SIDE_MARGIN = 18.dp
@@ -38,17 +41,19 @@ object GameScreenLayout {
     /**
      * Deterministic size of the portrait game viewport, computed from the
      * display size by [computePortraitScreenGeometry]. The renderer
-     * aspect-fits the core frame into the viewport, so the *content* rect
-     * (the viewport minus the display-cutout padding on the placeholder)
-     * must match the frame aspect exactly: 2:3 for the stacked DS frame,
-     * 3:2 for GBA. [outerHeight] is the placeholder's height including the
-     * cutout inset, so the content left after padding is exactly
-     * [contentWidth] x [contentHeight].
+     * aspect-fits the core frame into the viewport, so the viewport rect
+     * itself must match the frame aspect exactly: 2:3 for the stacked DS
+     * frame, 3:2 for GBA. The placeholder is sized to exactly
+     * [contentWidth] x [contentHeight] and carries no insets padding of its
+     * own; [cutoutTop] is folded into the top margin instead. (v3.2 added
+     * the cutout to the height *and* padded the placeholder by it, which
+     * made the reported viewport ~2x the cutout too tall: the renderer
+     * centered the frame inside it, leaving a letterbox band at the top of
+     * the upper window and below the lower one.)
      */
     data class PortraitScreenGeometry(
         val contentWidth: Dp,
         val contentHeight: Dp,
-        val outerHeight: Dp,
         val cutoutTop: Dp,
         val sideMargin: Dp,
         val topMargin: Dp,
@@ -92,7 +97,6 @@ object GameScreenLayout {
         return PortraitScreenGeometry(
             contentWidth = contentWidth,
             contentHeight = contentHeight,
-            outerHeight = contentHeight + cutoutTop,
             cutoutTop = cutoutTop,
             sideMargin = SCREEN_SIDE_MARGIN,
             topMargin = SCREEN_TOP_MARGIN,
@@ -152,10 +156,16 @@ object GameScreenLayout {
                     // Geometry-driven shells (DS, GBA): the viewport gets an
                     // exact size computed from the display, so the renderer
                     // fills it with no letterbox and the shell frame drawn
-                    // inside the placeholder lines up by construction.
+                    // inside the placeholder lines up by construction. The
+                    // display cutout is part of the top margin, never of the
+                    // height: the placeholder must be exactly the content
+                    // rect it reports as the GL viewport.
                     width = Dimension.value(screenGeometry.contentWidth)
-                    height = Dimension.value(screenGeometry.outerHeight)
-                    top.linkTo(parent.top, margin = screenGeometry.topMargin)
+                    height = Dimension.value(screenGeometry.contentHeight)
+                    top.linkTo(
+                        parent.top,
+                        margin = screenGeometry.topMargin + screenGeometry.cutoutTop,
+                    )
                     absoluteLeft.linkTo(parent.absoluteLeft)
                     absoluteRight.linkTo(parent.absoluteRight)
                 } else {
@@ -192,8 +202,9 @@ object GameScreenLayout {
             constrain(hingeBand) {
                 if (screenGeometry != null) {
                     // Place the band exactly over the seam of the content
-                    // rect: the placeholder's top plus the cutout inset plus
-                    // half the content height. All values come from the same
+                    // rect: the placeholder's top plus half the content
+                    // height (the placeholder is exactly the content rect,
+                    // no inset inside it). All values come from the same
                     // geometry as the viewport, so the band cannot drift.
                     width = Dimension.value(screenGeometry.contentWidth)
                     height = Dimension.value(HINGE_BAND_HEIGHT)
@@ -202,8 +213,7 @@ object GameScreenLayout {
                     top.linkTo(
                         gameView.top,
                         margin =
-                            screenGeometry.cutoutTop +
-                                screenGeometry.contentHeight / 2 -
+                            screenGeometry.contentHeight / 2 -
                                 HINGE_BAND_HEIGHT / 2,
                     )
                 } else {
