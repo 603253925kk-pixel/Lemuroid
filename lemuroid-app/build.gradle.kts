@@ -10,7 +10,12 @@ plugins {
 
 android {
     defaultConfig {
-        versionCode = 252
+        // Every CI build used to ship the same versionCode 252, so the
+        // phone's installer offered each new build as a same-version
+        // "reinstall" instead of an upgrade (user noticed on Build
+        // APK #45). Add the CI run number so versionCode strictly
+        // increases with every build; local builds keep the base value.
+        versionCode = 252 + (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0)
         versionName = "1.17.0" // Always remember to update Cores Tag!
         applicationId = "com.swordfish.lemuroid"
     }

@@ -222,6 +222,12 @@ class MelonDSGameActivity : ImmersiveActivity() {
         if (::playTimeTracker.isInitialized && playTimeTrackingActive) {
             runCatching { runBlocking { playTimeTracker.flush() } }
         }
+        // Mirror BaseGameActivity: without this the :game process (and the
+        // file lock it holds) outlives the session, and GameLauncher then
+        // refuses every later launch with "close the current game" forever.
+        if (!isChangingConfigurations) {
+            GameService.requestTermination()
+        }
         super.onDestroy()
     }
 
