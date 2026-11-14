@@ -17,8 +17,29 @@ class GameUtils {
                 } else {
                     ""
                 }
-            return "$systemName $developerName"
+            val playTime =
+                if (game.totalPlayTimeMillis >= MIN_PLAY_TIME_MILLIS) {
+                    " - Played ${formatPlayTime(game.totalPlayTimeMillis)}"
+                } else {
+                    ""
+                }
+            return "$systemName $developerName$playTime"
         }
+
+        private fun formatPlayTime(totalPlayTimeMillis: Long): String {
+            val totalMinutes = totalPlayTimeMillis / MILLIS_PER_MINUTE
+            val hours = totalMinutes / MINUTES_PER_HOUR
+            val minutes = totalMinutes % MINUTES_PER_HOUR
+            return if (hours > 0) {
+                "${hours}h ${minutes}m"
+            } else {
+                "${minutes}m"
+            }
+        }
+
+        private const val MILLIS_PER_MINUTE = 60_000L
+        private const val MINUTES_PER_HOUR = 60L
+        private const val MIN_PLAY_TIME_MILLIS = 60_000L
 
         private fun getSystemNameForGame(
             context: Context,
