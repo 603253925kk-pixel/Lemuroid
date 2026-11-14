@@ -73,6 +73,8 @@
     <string name="settings_description_direct_game_load">(Experimental) Reduce loading time and cache usage on supported consoles.</string>
     <string name="settings_title_melonds_engine">NDS 使用 melonDS 新引擎</string>
     <string name="settings_description_melonds_engine">开启时 NDS 游戏使用带 GPU 渲染的新引擎（3D 场景更流畅）；关闭时使用原来的 libretro 核心。两种引擎的存档互通。</string>
+    <string name="settings_title_melonds_software_renderer">NDS 新引擎使用软件渲染</string>
+    <string name="settings_description_melonds_software_renderer">开启时新引擎改用 CPU 软件渲染（画面颜色最准确，但 3D 场景会慢）；关闭时用 GPU 渲染。若 GPU 渲染下颜色不对（如水面发橙），打开此项对比。</string>
 
     <string name="settings_title_enable_rumble">Rumble</string>
     <string name="settings_description_enable_rumble">Enable rumble in supported games and controllers</string>

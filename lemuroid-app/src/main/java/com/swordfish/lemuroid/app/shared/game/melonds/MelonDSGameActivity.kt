@@ -17,11 +17,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
+import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.game.GameService
 import com.swordfish.lemuroid.app.shared.ImmersiveActivity
 import com.swordfish.lemuroid.app.shared.game.BaseGameActivity
 import com.swordfish.lemuroid.common.displayToast
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
+import com.swordfish.lemuroid.lib.preferences.SharedPreferencesHelper
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.storage.DirectoriesManager
 import kotlinx.coroutines.Dispatchers
@@ -159,7 +161,13 @@ class MelonDSGameActivity : ImmersiveActivity() {
                         MelonDSEngine.ensureSetup(applicationContext)
                         stage = "setupEmulator"
                         MelonEmulator.setupEmulator(
-                            MelonDSEmulatorConfig.build(applicationContext),
+                            MelonDSEmulatorConfig.build(
+                                applicationContext,
+                                useSoftwareRenderer =
+                                    SharedPreferencesHelper
+                                        .getSharedPreferences(applicationContext)
+                                        .getBoolean(getString(R.string.pref_key_melonds_software_renderer), false),
+                            ),
                             assets,
                             null,
                             NoOpRetroAchievementsCallback,

@@ -19,14 +19,24 @@ import me.magnum.melonds.domain.model.VideoRenderer
  * Values mirror the upstream melonDS-android defaults (see
  * SharedPreferencesSettingsRepository in the beta-1.10.0 tree), with two
  * deliberate deviations:
- * - the renderer is forced to [VideoRenderer.OPENGL]: GPU rendering is the
+ * - the renderer defaults to [VideoRenderer.OPENGL]: GPU rendering is the
  *   whole point of this engine path (upstream's preference default is
- *   "software" for compatibility reasons);
+ *   "software" for compatibility reasons). The user can flip to software
+ *   rendering in the advanced settings — added as an A/B switch after the
+ *   #50 device test showed water surfaces rendering orange on the OpenGL
+ *   path in Pokémon Origin HeartGold, so the two renderers can be compared
+ *   in a single build;
+ * - threaded rendering is OFF (it was on through #50): the threaded 3D
+ *   renderer is the prime suspect for the wrong water textures, and
+ *   upstream ships it as an opt-in for the same class of glitches;
  * - no custom BIOS: the core falls back to its built-in FreeBIOS and
  *   internally generated firmware, so the user never has to provide files.
  */
 object MelonDSEmulatorConfig {
-    fun build(context: Context): EmulatorConfiguration {
+    fun build(
+        context: Context,
+        useSoftwareRenderer: Boolean = false,
+    ): EmulatorConfiguration {
         return EmulatorConfiguration(
             useCustomBios = false,
             showBootScreen = false,
@@ -63,9 +73,9 @@ object MelonDSEmulatorConfig {
                 ),
             rendererConfiguration =
                 RendererConfiguration(
-                    renderer = VideoRenderer.OPENGL,
+                    renderer = if (useSoftwareRenderer) VideoRenderer.SOFTWARE else VideoRenderer.OPENGL,
                     videoFiltering = VideoFiltering.NONE,
-                    threadedRendering = true,
+                    threadedRendering = false,
                     internalResolutionScaling = 1,
                 ),
         )
