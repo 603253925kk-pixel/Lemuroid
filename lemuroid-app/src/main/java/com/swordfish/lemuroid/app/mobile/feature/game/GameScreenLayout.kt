@@ -16,18 +16,24 @@ object GameScreenLayout {
     const val CONSTRAINTS_SHELL_BODY = "shellBody"
     const val CONSTRAINTS_SCREEN_BEZEL = "screenBezel"
 
+    // Native aspect ratio of the GBA screen (240x160). A single wide screen
+    // like this one should hug its bezel instead of filling the tall area
+    // that suits the stacked dual screens of the DS.
+    const val GAME_VIEW_RATIO_GBA = "3:2"
+
     fun buildConstraintSet(
         isLandscape: Boolean,
         allowTouchOverlay: Boolean,
+        portraitGameViewRatio: String? = null,
     ): ConstraintSet {
         return when {
-            !isLandscape -> buildConstraintSetPortrait()
+            !isLandscape -> buildConstraintSetPortrait(portraitGameViewRatio)
             allowTouchOverlay -> buildConstraintSetLandscape()
             else -> buildConstraintSetLandscapeNoOverlay()
         }
     }
 
-    private fun buildConstraintSetPortrait(): ConstraintSet {
+    private fun buildConstraintSetPortrait(gameViewRatio: String? = null): ConstraintSet {
         return ConstraintSet {
             val gameView = createRefFor(CONSTRAINTS_GAME_VIEW)
             val leftPad = createRefFor(CONSTRAINTS_LEFT_PAD)
@@ -59,7 +65,17 @@ object GameScreenLayout {
 
             constrain(gameView) {
                 width = Dimension.fillToConstraints
-                height = Dimension.fillToConstraints
+                height =
+                    if (gameViewRatio != null) {
+                        Dimension.ratio(gameViewRatio)
+                    } else {
+                        Dimension.fillToConstraints
+                    }
+                if (gameViewRatio != null) {
+                    // Pin the screen to the top of the body; the area below it
+                    // stays as shell, like on a real single-screen handheld.
+                    verticalBias = 0f
+                }
                 top.linkTo(parent.top, margin = 18.dp)
                 absoluteLeft.linkTo(parent.absoluteLeft, margin = 18.dp)
                 absoluteRight.linkTo(parent.absoluteRight, margin = 18.dp)
