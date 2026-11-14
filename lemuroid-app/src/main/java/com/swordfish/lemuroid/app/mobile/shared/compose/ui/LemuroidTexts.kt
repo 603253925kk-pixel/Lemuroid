@@ -20,11 +20,15 @@ fun LemuroidGameTexts(
 ) {
     val context = LocalContext.current
     val subtitle =
-        remember(game.id) {
+        remember(game.id, game.totalPlayTimeMillis) {
             GameUtils.getGameSubtitle(context, game)
         }
+    val playTime =
+        remember(game.id, game.totalPlayTimeMillis) {
+            GameUtils.getPlayTimeText(game)
+        }
 
-    LemuroidTexts(modifier, game.displayName(), subtitle)
+    LemuroidTexts(modifier, game.displayName(), subtitle, playTime)
 }
 
 @Composable
@@ -32,6 +36,7 @@ fun LemuroidTexts(
     modifier: Modifier = Modifier,
     title: String,
     subtitle: String,
+    playTime: String? = null,
 ) {
     Column(
         modifier = modifier.padding(8.dp),
@@ -48,5 +53,14 @@ fun LemuroidTexts(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (playTime != null) {
+            Text(
+                text = playTime,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

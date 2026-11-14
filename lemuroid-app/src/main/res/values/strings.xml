@@ -137,6 +137,8 @@
     <string name="game_menu_load">Load</string>
     <string name="game_menu_restart">Restart</string>
     <string name="game_menu_quit">Quit</string>
+    <string name="game_menu_play_time">Play Time</string>
+    <string name="game_menu_play_time_subtitle">Total %1$s · This session %2$s</string>
     <string name="game_menu_settings">Settings</string>
     <string name="game_menu_state">State %1$s</string>
     <string name="game_menu_change_disk_button">Change Disk</string>

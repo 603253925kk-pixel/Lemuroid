@@ -2,6 +2,7 @@ package com.swordfish.lemuroid.app.shared.game
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.WindowInsets
@@ -30,6 +31,7 @@ import com.swordfish.lemuroid.lib.game.GameLoader
 import com.swordfish.lemuroid.lib.library.CheatsManager
 import com.swordfish.lemuroid.lib.library.GameSystem
 import com.swordfish.lemuroid.lib.library.SystemCoreConfig
+import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.saves.SavesManager
 import com.swordfish.lemuroid.lib.saves.StatesManager
@@ -39,15 +41,19 @@ import com.swordfish.touchinput.radial.sensors.TiltConfiguration
 import com.swordfish.touchinput.radial.settings.TouchControllerSettingsManager
 import gg.padkit.inputevents.InputEvent
 import gg.padkit.inputstate.InputState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 class BaseGameScreenViewModel(
     private val appContext: Context,
-    game: Game,
+    private val game: Game,
     settingsManager: SettingsManager,
     inputDeviceManager: InputDeviceManager,
     controllerConfigsManager: ControllerConfigsManager,
@@ -60,6 +66,7 @@ class BaseGameScreenViewModel(
     coreVariablesManager: CoreVariablesManager,
     rumbleManager: RumbleManager,
     cheatsManager: CheatsManager,
+    private val retrogradeDatabase: RetrogradeDatabase,
 ) : ViewModel(), DefaultLifecycleObserver {
     class Factory(
         private val appContext: Context,
@@ -76,6 +83,7 @@ class BaseGameScreenViewModel(
         private val coreVariablesManager: CoreVariablesManager,
         private val rumbleManager: RumbleManager,
         private val cheatsManager: CheatsManager,
+        private val retrogradeDatabase: RetrogradeDatabase,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return BaseGameScreenViewModel(
@@ -93,6 +101,7 @@ class BaseGameScreenViewModel(
                 coreVariablesManager,
                 rumbleManager,
                 cheatsManager,
+                retrogradeDatabase,
             ) as T
         }
     }
@@ -164,6 +173,51 @@ class BaseGameScreenViewModel(
                 .takeIf { it in FAST_FORWARD_SPEEDS }
                 ?: DEFAULT_FAST_FORWARD_SPEED,
         )
+
+    // Play time is persisted incrementally: flushed to the database every
+    // minute while playing, and again whenever the game is paused or sent to
+    // the background. This way a session is not lost when the process is
+    // killed while the game sits in the background, which is what happened
+    // when the whole session was only written back on a clean exit.
+    private val playTimeSessionStartElapsed = SystemClock.elapsedRealtime()
+    private var playTimeLastFlushElapsed = playTimeSessionStartElapsed
+    private val playTimeBaseTotalMillis = game.totalPlayTimeMillis
+    private val playTimeFlushMutex = Mutex()
+
+    fun sessionPlayTimeMillis(): Long {
+        return SystemClock.elapsedRealtime() - playTimeSessionStartElapsed
+    }
+
+    fun totalPlayTimeMillis(): Long {
+        return playTimeBaseTotalMillis + sessionPlayTimeMillis()
+    }
+
+    private suspend fun flushPlayTime() {
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val deltaMillis = nowElapsed - playTimeLastFlushElapsed
+        if (deltaMillis <= 0) return
+        playTimeLastFlushElapsed = nowElapsed
+        playTimeFlushMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val storedGame = retrogradeDatabase.gameDao().selectById(game.id) ?: return@withContext
+                retrogradeDatabase.gameDao().update(
+                    storedGame.copy(
+                        lastPlayedAt = System.currentTimeMillis(),
+                        totalPlayTimeMillis = storedGame.totalPlayTimeMillis + deltaMillis,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun startPlayTimeTracking() {
+        viewModelScope.launch {
+            while (true) {
+                delay(PLAY_TIME_FLUSH_INTERVAL_MILLIS)
+                runCatching { flushPlayTime() }
+            }
+        }
+    }
 
     private inline fun withLoading(block: () -> Unit) {
         loadingState.value = true
@@ -334,6 +388,7 @@ class BaseGameScreenViewModel(
     fun requestFinish() {
         if (loadingState.value) return
         viewModelScope.launch {
+            runCatching { flushPlayTime() }
             withLoading {
                 val snapshot = saves.captureSaveSnapshot(true) ?: return@launch
                 saves.writeSaveSnapshot(snapshot)
@@ -361,6 +416,18 @@ class BaseGameScreenViewModel(
         owner.lifecycle.addObserver(inputs)
         owner.lifecycle.addObserver(retroGameView)
         owner.lifecycle.addObserver(touchControls)
+
+        startPlayTimeTracking()
+    }
+
+    override fun onPause(owner: LifecycleOwner) {
+        super.onPause(owner)
+        viewModelScope.launch { runCatching { flushPlayTime() } }
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        super.onStop(owner)
+        viewModelScope.launch { runCatching { flushPlayTime() } }
     }
 
     fun sendKeyEvent(
@@ -375,6 +442,7 @@ class BaseGameScreenViewModel(
     }
 
     companion object {
+        private const val PLAY_TIME_FLUSH_INTERVAL_MILLIS = 60_000L
         private const val PREF_FAST_FORWARD_SPEED = "pref_fast_forward_speed"
         private const val DEFAULT_FAST_FORWARD_SPEED = 2
 

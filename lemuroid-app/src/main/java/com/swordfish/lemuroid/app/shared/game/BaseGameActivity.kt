@@ -36,6 +36,7 @@ import com.swordfish.lemuroid.lib.library.CheatsManager
 import com.swordfish.lemuroid.lib.library.ExposedSetting
 import com.swordfish.lemuroid.lib.library.GameSystem
 import com.swordfish.lemuroid.lib.library.SystemCoreConfig
+import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.saves.SavesManager
 import com.swordfish.lemuroid.lib.saves.StatesManager
@@ -86,6 +87,9 @@ abstract class BaseGameActivity : ImmersiveActivity() {
     lateinit var cheatsManager: CheatsManager
 
     @Inject
+    lateinit var retrogradeDb: RetrogradeDatabase
+
+    @Inject
     lateinit var sharedPreferences: Lazy<SharedPreferences>
 
     private lateinit var baseGameScreenViewModel: BaseGameScreenViewModel
@@ -117,6 +121,7 @@ abstract class BaseGameActivity : ImmersiveActivity() {
                 coreVariablesManager,
                 rumbleManager,
                 cheatsManager,
+                retrogradeDb,
             )
         }
 
@@ -209,6 +214,14 @@ abstract class BaseGameActivity : ImmersiveActivity() {
                     baseGameScreenViewModel.retroGameView.retroGameView?.getAvailableDisks() ?: 0,
                 )
                 this.putExtra(GameMenuContract.EXTRA_GAME, game)
+                this.putExtra(
+                    GameMenuContract.EXTRA_TOTAL_PLAY_TIME_MILLIS,
+                    baseGameScreenViewModel.totalPlayTimeMillis(),
+                )
+                this.putExtra(
+                    GameMenuContract.EXTRA_SESSION_PLAY_TIME_MILLIS,
+                    baseGameScreenViewModel.sessionPlayTimeMillis(),
+                )
                 this.putExtra(GameMenuContract.EXTRA_SYSTEM_CORE_CONFIG, systemCoreConfig)
                 this.putExtra(
                     GameMenuContract.EXTRA_AUDIO_ENABLED,

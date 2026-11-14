@@ -93,11 +93,13 @@ class GameLaunchTaskHandler(
         game: Game,
         durationMillis: Long,
     ) {
+        // Play time is persisted incrementally by the game process itself
+        // (BaseGameScreenViewModel flushes every minute and on pause/stop),
+        // so it must not be added again here. Only lastPlayedAt is refreshed.
         val storedGame = retrogradeDb.gameDao().selectById(game.id) ?: game
         retrogradeDb.gameDao().update(
             storedGame.copy(
                 lastPlayedAt = System.currentTimeMillis(),
-                totalPlayTimeMillis = storedGame.totalPlayTimeMillis + durationMillis,
             ),
         )
     }

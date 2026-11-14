@@ -90,6 +90,8 @@ class GameMenuActivity : RetrogradeComponentActivity() {
         val currentDisk: Int,
         val currentTiltConfiguration: TiltConfiguration,
         val allTiltConfigurations: List<TiltConfiguration>,
+        val totalPlayTimeMillis: Long = 0,
+        val sessionPlayTimeMillis: Long = 0,
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -135,6 +137,10 @@ class GameMenuActivity : RetrogradeComponentActivity() {
                     intent.serializable<Array<TiltConfiguration>>(GameMenuContract.EXTRA_TILT_ALL_CONFIGS)
                         ?.toList()
                         ?: emptyList(),
+                totalPlayTimeMillis =
+                    extras?.getLong(GameMenuContract.EXTRA_TOTAL_PLAY_TIME_MILLIS, 0) ?: 0,
+                sessionPlayTimeMillis =
+                    extras?.getLong(GameMenuContract.EXTRA_SESSION_PLAY_TIME_MILLIS, 0) ?: 0,
             )
 
         setContent {

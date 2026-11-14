@@ -1010,7 +1010,7 @@ data class GameSystem(
                             defaultSettings =
                                 listOf(
                                     CoreVariable("melonds_number_of_screen_layouts", "1"),
-                                    CoreVariable("melonds_touch_mode", "Touch"),
+                                    CoreVariable("melonds_touch_mode", "touch"),
                                     CoreVariable("melonds_threaded_renderer", "enabled"),
                                     CoreVariable("melonds_jit_enable", "enabled"),
                                 ),

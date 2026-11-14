@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -20,6 +21,7 @@ import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.gamemenu.tilt.TiltConfigurationMenuEntry
 import com.swordfish.lemuroid.app.shared.GameMenuContract
 import com.swordfish.lemuroid.app.utils.android.settings.LemuroidSettingsList
+import com.swordfish.lemuroid.app.utils.games.GameUtils
 import com.swordfish.lemuroid.app.utils.android.settings.LemuroidSettingsMenuLink
 import com.swordfish.lemuroid.app.utils.android.settings.LemuroidSettingsSwitch
 import kotlin.reflect.KFunction1
@@ -31,6 +33,27 @@ fun GameMenuHomeScreen(
     onResult: KFunction1<Intent.() -> Unit, Unit>,
 ) {
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        LemuroidSettingsMenuLink(
+            title = { Text(text = stringResource(id = R.string.game_menu_play_time)) },
+            subtitle = {
+                Text(
+                    text =
+                        stringResource(
+                            id = R.string.game_menu_play_time_subtitle,
+                            GameUtils.formatPlayTime(gameMenuRequest.totalPlayTimeMillis),
+                            GameUtils.formatPlayTime(gameMenuRequest.sessionPlayTimeMillis),
+                        ),
+                )
+            },
+            icon = {
+                Icon(
+                    Icons.Filled.Schedule,
+                    contentDescription = stringResource(id = R.string.game_menu_play_time),
+                )
+            },
+            onClick = { },
+        )
+
         if (gameMenuRequest.coreConfig.statesSupported) {
             LemuroidSettingsMenuLink(
                 title = { Text(text = stringResource(id = R.string.game_menu_save)) },
