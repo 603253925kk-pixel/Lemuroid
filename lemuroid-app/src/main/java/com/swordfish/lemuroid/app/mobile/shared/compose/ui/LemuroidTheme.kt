@@ -1,109 +1,120 @@
 package com.swordfish.lemuroid.app.mobile.shared.compose.ui
 
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
-private val LightColorScheme =
+/**
+ * Pixel-style Material You fallback palettes (static, for Android < 12):
+ * solid matte tonal blocks on the M3 baseline blue seed (#0B57D0 family) —
+ * the same hues the approved Pixel mockup uses. On Android 12+ the system
+ * dynamic colors (wallpaper-derived) take over instead.
+ */
+private val PixelLightColorScheme =
     lightColorScheme(
-        primary = md_theme_light_primary,
-        onPrimary = md_theme_light_onPrimary,
-        primaryContainer = md_theme_light_primaryContainer,
-        onPrimaryContainer = md_theme_light_onPrimaryContainer,
-        secondary = md_theme_light_secondary,
-        onSecondary = md_theme_light_onSecondary,
-        secondaryContainer = md_theme_light_secondaryContainer,
-        onSecondaryContainer = md_theme_light_onSecondaryContainer,
-        tertiary = md_theme_light_tertiary,
-        onTertiary = md_theme_light_onTertiary,
-        tertiaryContainer = md_theme_light_tertiaryContainer,
-        onTertiaryContainer = md_theme_light_onTertiaryContainer,
-        error = md_theme_light_error,
-        errorContainer = md_theme_light_errorContainer,
-        onError = md_theme_light_onError,
-        onErrorContainer = md_theme_light_onErrorContainer,
-        background = md_theme_light_background,
-        onBackground = md_theme_light_onBackground,
-        surface = md_theme_light_surface,
-        onSurface = md_theme_light_onSurface,
-        surfaceVariant = md_theme_light_surfaceVariant,
-        onSurfaceVariant = md_theme_light_onSurfaceVariant,
-        outline = md_theme_light_outline,
-        inverseOnSurface = md_theme_light_inverseOnSurface,
-        inverseSurface = md_theme_light_inverseSurface,
-        inversePrimary = md_theme_light_inversePrimary,
-        surfaceTint = md_theme_light_surfaceTint,
-        outlineVariant = md_theme_light_outlineVariant,
-        scrim = md_theme_light_scrim,
+        primary = Color(0xFF0B57D0),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFD3E3FD),
+        onPrimaryContainer = Color(0xFF001D35),
+        secondary = Color(0xFF565F71),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFDAE2F9),
+        onSecondaryContainer = Color(0xFF131C2B),
+        tertiary = Color(0xFF705575),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFFAD8FD),
+        onTertiaryContainer = Color(0xFF28132E),
+        error = Color(0xFFBA1A1A),
+        errorContainer = Color(0xFFFFDAD6),
+        onError = Color(0xFFFFFFFF),
+        onErrorContainer = Color(0xFF410002),
+        background = Color(0xFFFEFBFF),
+        onBackground = Color(0xFF1B1B1F),
+        surface = Color(0xFFFEFBFF),
+        onSurface = Color(0xFF1B1B1F),
+        surfaceVariant = Color(0xFFE1E2EC),
+        onSurfaceVariant = Color(0xFF44474E),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFF8F2FA),
+        surfaceContainer = Color(0xFFF2F0F4),
+        surfaceContainerHigh = Color(0xFFECE6F0),
+        surfaceContainerHighest = Color(0xFFE6E0E9),
+        outline = Color(0xFF74777F),
+        outlineVariant = Color(0xFFC4C6D0),
+        inverseOnSurface = Color(0xFFF2F0F4),
+        inverseSurface = Color(0xFF2F3033),
+        inversePrimary = Color(0xFFA8C7FA),
+        surfaceTint = Color(0xFF0B57D0),
+        scrim = Color(0xFF000000),
     )
 
-private val DarkColorScheme =
+private val PixelDarkColorScheme =
     darkColorScheme(
-        primary = md_theme_dark_primary,
-        onPrimary = md_theme_dark_onPrimary,
-        primaryContainer = md_theme_dark_primaryContainer,
-        onPrimaryContainer = md_theme_dark_onPrimaryContainer,
-        secondary = md_theme_dark_secondary,
-        onSecondary = md_theme_dark_onSecondary,
-        secondaryContainer = md_theme_dark_secondaryContainer,
-        onSecondaryContainer = md_theme_dark_onSecondaryContainer,
-        tertiary = md_theme_dark_tertiary,
-        onTertiary = md_theme_dark_onTertiary,
-        tertiaryContainer = md_theme_dark_tertiaryContainer,
-        onTertiaryContainer = md_theme_dark_onTertiaryContainer,
-        error = md_theme_dark_error,
-        errorContainer = md_theme_dark_errorContainer,
-        onError = md_theme_dark_onError,
-        onErrorContainer = md_theme_dark_onErrorContainer,
-        background = md_theme_dark_background,
-        onBackground = md_theme_dark_onBackground,
-        surface = md_theme_dark_surface,
-        onSurface = md_theme_dark_onSurface,
-        surfaceVariant = md_theme_dark_surfaceVariant,
-        onSurfaceVariant = md_theme_dark_onSurfaceVariant,
-        outline = md_theme_dark_outline,
-        inverseOnSurface = md_theme_dark_inverseOnSurface,
-        inverseSurface = md_theme_dark_inverseSurface,
-        inversePrimary = md_theme_dark_inversePrimary,
-        surfaceTint = md_theme_dark_surfaceTint,
-        outlineVariant = md_theme_dark_outlineVariant,
-        scrim = md_theme_dark_scrim,
+        primary = Color(0xFFA8C7FA),
+        onPrimary = Color(0xFF00315C),
+        primaryContainer = Color(0xFF0842A0),
+        onPrimaryContainer = Color(0xFFD3E3FD),
+        secondary = Color(0xFFBEC6DC),
+        onSecondary = Color(0xFF283041),
+        secondaryContainer = Color(0xFF3E4759),
+        onSecondaryContainer = Color(0xFFDAE2F9),
+        tertiary = Color(0xFFE7B8E8),
+        onTertiary = Color(0xFF3E2846),
+        tertiaryContainer = Color(0xFF573D5B),
+        onTertiaryContainer = Color(0xFFFAD8FD),
+        error = Color(0xFFFFB4AB),
+        errorContainer = Color(0xFF93000A),
+        onError = Color(0xFF690005),
+        onErrorContainer = Color(0xFFFFDAD6),
+        background = Color(0xFF131316),
+        onBackground = Color(0xFFE3E2E6),
+        surface = Color(0xFF131316),
+        onSurface = Color(0xFFE3E2E6),
+        surfaceVariant = Color(0xFF44474E),
+        onSurfaceVariant = Color(0xFFC4C6D0),
+        surfaceContainerLowest = Color(0xFF0E0E11),
+        surfaceContainerLow = Color(0xFF1B1B1F),
+        surfaceContainer = Color(0xFF1F1F23),
+        surfaceContainerHigh = Color(0xFF2A2A2E),
+        surfaceContainerHighest = Color(0xFF353539),
+        outline = Color(0xFF8E9099),
+        outlineVariant = Color(0xFF44474E),
+        inverseOnSurface = Color(0xFF2F3033),
+        inverseSurface = Color(0xFFE3E2E6),
+        inversePrimary = Color(0xFF0B57D0),
+        surfaceTint = Color(0xFFA8C7FA),
+        scrim = Color(0xFF000000),
     )
 
 @Composable
 fun AppTheme(
     darkTheme: Boolean = true,
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    // The handheld-style UI uses a fixed palette instead of Material You dynamic colors.
-    val colors = if (darkTheme) DeckDarkColorScheme else LightColorScheme
+    // Pixel-style Material You: on Android 12+ the colors come from the
+    // system (wallpaper-derived dynamic scheme); below that the static
+    // Pixel tonal palettes above are the fallback. The old static
+    // md_theme_* schemes and the custom Deck dark palette are retired by
+    // this change — the handheld game shell keeps its own charcoal
+    // ShellTheme and is unaffected.
+    val colors =
+        when {
+            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                val context = LocalContext.current
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+            darkTheme -> PixelDarkColorScheme
+            else -> PixelLightColorScheme
+        }
 
     MaterialTheme(colorScheme = colors) {
         content()
     }
 }
-
-private val DeckDarkColorScheme =
-    darkColorScheme(
-        primary = DeckColors.Accent,
-        onPrimary = DeckColors.OnSurface,
-        primaryContainer = DeckColors.SurfaceRaised,
-        onPrimaryContainer = DeckColors.OnSurface,
-        secondary = DeckColors.AccentPurple,
-        onSecondary = DeckColors.OnSurface,
-        secondaryContainer = DeckColors.SurfaceRaised,
-        onSecondaryContainer = DeckColors.OnSurface,
-        tertiary = DeckColors.IconBlue,
-        background = DeckColors.Background,
-        onBackground = DeckColors.OnSurface,
-        surface = DeckColors.Background,
-        onSurface = DeckColors.OnSurface,
-        surfaceVariant = DeckColors.Surface,
-        onSurfaceVariant = DeckColors.OnSurfaceMuted,
-        surfaceContainer = DeckColors.Surface,
-        surfaceContainerHigh = DeckColors.SurfaceRaised,
-        surfaceContainerHighest = DeckColors.SurfaceRaised,
-        outline = DeckColors.Outline,
-        outlineVariant = DeckColors.Outline,
-    )

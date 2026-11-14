@@ -72,6 +72,7 @@
             android:name="com.swordfish.lemuroid.app.shared.game.melonds.MelonDSGameActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|mnc|colorMode|density|fontScale|fontWeightAdjustment|keyboard|layoutDirection|locale|mcc|navigation|smallestScreenSize|touchscreen|uiMode"
             android:process=":game"
+            android:screenOrientation="portrait"
             android:theme="@style/LemuroidMaterialTheme.Game" />
 
         <service

@@ -114,38 +114,24 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 setOnTouchListener { _, event -> handleSurfaceTouch(event) }
             }
 
-        // Layout (M4 fix, after the #48 device test): the dual-screen surface
-        // gets an exact 2:3 box at the top of the screen — sized by width, or
-        // by height on wide/short screens so the controls deck always keeps
-        // its share — and every on-screen control lives in the deck below it.
-        // The first version stretched the surface over the whole tall screen:
-        // the renderer centered the screens with large black bars above and
-        // below, and the buttons floated in those bars and over the bottom
-        // screen's edges, which the user (rightly) rejected on sight.
-        val metrics = resources.displayMetrics
-        val maxSurfaceHeight = (metrics.heightPixels * 0.68f).toInt()
-        var surfaceWidth = metrics.widthPixels
-        var surfaceHeight = surfaceWidth * 3 / 2
-        if (surfaceHeight > maxSurfaceHeight) {
-            surfaceHeight = maxSurfaceHeight
-            surfaceWidth = surfaceHeight * 2 / 3
-        }
-        val root =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setBackgroundColor(Color.BLACK)
-            }
-        root.addView(
-            surfaceView,
-            LinearLayout.LayoutParams(surfaceWidth, surfaceHeight).apply {
-                gravity = Gravity.CENTER_HORIZONTAL
+        // Layout (M4): the v3.3 handheld shell hosts the surface and the
+        // controls deck — the GLSurfaceView goes inside GameViewportShellBox
+        // (sized exactly to the 2:3 viewport by the shell geometry) and the
+        // existing View deck sits on the shell's lower body. The previous
+        // plain LinearLayout version (surface box + bare deck on black) is
+        // what the user rejected on sight in the #48 test. The activity is
+        // portrait-locked (manifest), so the shell never has to survive a
+        // rotation-driven surface re-creation.
+        setContentView(
+            androidx.compose.ui.platform.ComposeView(this).apply {
+                setContent {
+                    MelonDSGameShellContent(
+                        surfaceView = surfaceView,
+                        controlsDeck = buildControlsDeck(),
+                    )
+                }
             },
         )
-        root.addView(
-            buildControlsDeck(),
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
-        )
-        setContentView(root)
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -380,7 +366,9 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-            ).apply { topMargin = dp(10) },
+                // Clears the shell body's POWER row (top ~19dp of the deck)
+                // so the pill never prints over it.
+            ).apply { topMargin = dp(34) },
         )
 
         // L / R shoulders

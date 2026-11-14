@@ -462,6 +462,12 @@ fun GameViewportShellBox(
     frameMode: ShellFrameMode,
     onPositioned: (Rect) -> Unit,
     applyCutoutPadding: Boolean = true,
+    // Optional content hosted inside the viewport (M4): the melonDS shell
+    // embeds its GLSurfaceView here via AndroidView, so the surface is
+    // sized exactly to the frame rect and the frame drawn by this box lines
+    // up with it by construction. The libretro path leaves this empty and
+    // keeps its full-screen surface below the shell layers.
+    content: @Composable () -> Unit = {},
 ) {
     // The geometry-driven shells (frameMode != NONE) size this placeholder
     // to exactly the core frame's aspect and fold the display cutout into
@@ -487,7 +493,9 @@ fun GameViewportShellBox(
                     }
                     drawContent()
                 },
-    )
+    ) {
+        content()
+    }
 }
 
 /**
