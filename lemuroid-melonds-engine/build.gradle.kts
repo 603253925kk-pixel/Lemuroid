@@ -26,6 +26,15 @@ android {
                 // requires API 24+ at runtime, same as upstream
                 // melonDS-android.
                 arguments("-DANDROID_PLATFORM=android-24")
+                // 16 KB page-size devices (Android 15+ flagships, e.g. the
+                // user's Samsung) refuse to load shared libraries whose
+                // LOAD segments are only 4 KB aligned: Build APK #44's
+                // libmelonDS-lib.so and libmelonDS-android-frontend.so were
+                // flagged "LOAD segments not aligned" by the system and
+                // the engine failed to load on-device. This NDK toolchain
+                // switch links every library in this module with
+                // -Wl,-z,max-page-size=16384.
+                arguments("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
             }
         }
     }
