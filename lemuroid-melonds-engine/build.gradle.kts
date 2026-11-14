@@ -14,6 +14,18 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags("-std=c++17 -Wno-write-strings")
+                // The host pins minSdk 23 for every module, so AGP would
+                // invoke CMake with -DANDROID_PLATFORM=android-23. The
+                // engine's OpenGL renderer calls GLES 3.2 entry points
+                // (glFramebufferTexture, glColorMaski) that only exist in
+                // the NDK's android-24+ GLESv3 stub library, so linking
+                // against android-23 fails with undefined symbols (verified
+                // locally with AGP's exact parameters). AGP appends DSL
+                // arguments after its own, so this override wins. The
+                // library manifest minSdk stays 23; the engine code path
+                // requires API 24+ at runtime, same as upstream
+                // melonDS-android.
+                arguments("-DANDROID_PLATFORM=android-24")
             }
         }
     }
