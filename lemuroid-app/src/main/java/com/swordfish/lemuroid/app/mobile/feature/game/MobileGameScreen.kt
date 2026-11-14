@@ -168,6 +168,11 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                 gameView.viewport = viewport
             }
 
+            val isDualScreenShell =
+                currentControllerConfig?.touchControllerID == TouchControllerID.DESMUME ||
+                    currentControllerConfig?.touchControllerID == TouchControllerID.MELONDS
+            val isGbaShell = currentControllerConfig?.touchControllerID == TouchControllerID.GBA
+
             ConstraintLayout(
                 modifier = Modifier.fillMaxSize(),
                 constraintSet =
@@ -175,7 +180,7 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                         isLandscape,
                         currentControllerConfig?.allowTouchOverlay ?: true,
                         portraitGameViewRatio =
-                            if (currentControllerConfig?.touchControllerID == TouchControllerID.GBA) {
+                            if (isGbaShell) {
                                 GameScreenLayout.GAME_VIEW_RATIO_GBA
                             } else {
                                 null
@@ -183,12 +188,29 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                     ),
             ) {
                 if (!isLandscape) {
+                    // The shell layers are drawn over the game surface, so they
+                    // must leave the game viewport (tracked in viewportPosition)
+                    // unpainted or they would cover the game completely.
                     HandheldShellFullBody(
                         modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SHELL_BODY),
+                        screenRect = viewportPosition.value,
+                        dualScreen = isDualScreenShell,
                     )
                     HandheldScreenBezel(
                         modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SCREEN_BEZEL),
+                        screenRect = viewportPosition.value,
+                        dualScreen = isDualScreenShell,
                     )
+                    if (isDualScreenShell) {
+                        HandheldHingeBand(
+                            modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_HINGE_BAND),
+                        )
+                    }
+                    if (isGbaShell) {
+                        HandheldSpeakerGrille(
+                            modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SPEAKER_GRILLE),
+                        )
+                    }
                 }
 
                 Box(
@@ -443,9 +465,9 @@ private fun FastForwardButton(
                         .clip(CircleShape)
                         .background(
                             if (isActive) {
-                                Color(0xFFB7A6E8)
+                                ShellTheme.fastForwardActive
                             } else {
-                                Color(0xFF33333A).copy(alpha = 0.8f)
+                                ShellTheme.fastForwardInactive.copy(alpha = 0.9f)
                             },
                         )
                         .combinedClickable(
@@ -464,7 +486,7 @@ private fun FastForwardButton(
             }
             Text(
                 text = "${displayedSpeed}x",
-                color = Color(0xFF4A4232),
+                color = ShellTheme.fastForwardLabel,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
             )
