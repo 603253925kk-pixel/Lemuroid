@@ -1,6 +1,17 @@
 package com.swordfish.lemuroid.app.mobile.feature.settings.general
 
 import android.net.Uri
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -13,7 +24,9 @@ import androidx.navigation.NavController
 import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.main.MainRoute
 import com.swordfish.lemuroid.app.mobile.feature.main.navigateToRoute
+import com.swordfish.lemuroid.app.mobile.shared.compose.ui.DeckColors
 import com.swordfish.lemuroid.app.shared.library.LibraryIndexScheduler
+import com.swordfish.lemuroid.app.utils.android.settings.DeckSettingIcon
 import com.swordfish.lemuroid.app.utils.android.settings.LemuroidCardSettingsGroup
 import com.swordfish.lemuroid.app.utils.android.settings.LemuroidSettingsList
 import com.swordfish.lemuroid.app.utils.android.settings.LemuroidSettingsMenuLink
@@ -74,6 +87,7 @@ private fun MiscSettings(
     ) {
         if (isSaveSyncSupported) {
             LemuroidSettingsMenuLink(
+                icon = { DeckSettingIcon(Icons.Filled.Sync, DeckColors.IconOrange) },
                 title = { Text(text = stringResource(id = R.string.settings_title_save_sync)) },
                 subtitle = {
                     Text(text = stringResource(id = R.string.settings_description_save_sync))
@@ -82,6 +96,7 @@ private fun MiscSettings(
             )
         }
         LemuroidSettingsMenuLink(
+            icon = { DeckSettingIcon(Icons.Filled.Memory, DeckColors.IconPurple) },
             title = { Text(text = stringResource(id = R.string.settings_title_open_cores_selection)) },
             subtitle = {
                 Text(text = stringResource(id = R.string.settings_description_open_cores_selection))
@@ -89,6 +104,7 @@ private fun MiscSettings(
             onClick = { navController.navigateToRoute(MainRoute.SETTINGS_CORES_SELECTION) },
         )
         LemuroidSettingsMenuLink(
+            icon = { DeckSettingIcon(Icons.Filled.Memory, DeckColors.IconRed) },
             title = { Text(text = stringResource(id = R.string.settings_title_display_bios_info)) },
             subtitle = {
                 Text(text = stringResource(id = R.string.settings_description_display_bios_info))
@@ -97,6 +113,7 @@ private fun MiscSettings(
             onClick = { navController.navigateToRoute(MainRoute.SETTINGS_BIOS) },
         )
         LemuroidSettingsMenuLink(
+            icon = { DeckSettingIcon(Icons.Filled.Bolt, DeckColors.IconTeal) },
             title = { Text(text = stringResource(id = R.string.settings_title_advanced_settings)) },
             subtitle = {
                 Text(text = stringResource(id = R.string.settings_description_advanced_settings))
@@ -124,6 +141,7 @@ private fun InputSettings(navController: NavController) {
             items = stringListResource(R.array.pref_key_haptic_feedback_mode_display_names),
         )
         LemuroidSettingsMenuLink(
+            icon = { DeckSettingIcon(Icons.Filled.Gamepad, DeckColors.IconOrange) },
             title = { Text(text = stringResource(id = R.string.settings_title_gamepad_settings)) },
             subtitle = {
                 Text(text = stringResource(id = R.string.settings_description_gamepad_settings))
@@ -143,16 +161,19 @@ private fun GeneralSettings() {
     ) {
         LemuroidSettingsSwitch(
             state = booleanPreferenceState(R.string.pref_key_autosave, true),
+            icon = { DeckSettingIcon(Icons.Filled.Save, DeckColors.IconGreen) },
             title = { Text(text = stringResource(id = R.string.settings_title_enable_autosave)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_enable_autosave)) },
         )
         LemuroidSettingsSwitch(
             state = immersiveMode,
+            icon = { DeckSettingIcon(Icons.Filled.Fullscreen, DeckColors.IconTeal) },
             title = { Text(text = stringResource(id = R.string.settings_title_immersive_mode)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_immersive_mode)) },
         )
         LemuroidSettingsSwitch(
             state = hdMode,
+            icon = { DeckSettingIcon(Icons.Filled.HighQuality, DeckColors.IconBlue) },
             title = { Text(text = stringResource(id = R.string.settings_title_hd_mode)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_hd_mode)) },
         )
@@ -213,6 +234,7 @@ private fun RomsSettings(
 
     LemuroidCardSettingsGroup(title = { Text(text = stringResource(id = R.string.roms)) }) {
         LemuroidSettingsMenuLink(
+            icon = { DeckSettingIcon(Icons.Filled.FolderOpen, DeckColors.IconBlue) },
             title = { Text(text = stringResource(id = R.string.directory)) },
             subtitle = { Text(text = currentDirectoryName) },
             onClick = { onChangeFolder() },
@@ -220,11 +242,13 @@ private fun RomsSettings(
         )
         if (scanInProgress) {
             LemuroidSettingsMenuLink(
+                icon = { DeckSettingIcon(Icons.Filled.Stop, DeckColors.IconRed) },
                 title = { Text(text = stringResource(id = R.string.stop)) },
                 onClick = { LibraryIndexScheduler.cancelLibrarySync(context) },
             )
         } else {
             LemuroidSettingsMenuLink(
+                icon = { DeckSettingIcon(Icons.Filled.Refresh, DeckColors.IconGreen) },
                 title = { Text(text = stringResource(id = R.string.rescan)) },
                 onClick = { LibraryIndexScheduler.scheduleLibrarySync(context) },
                 enabled = !indexingInProgress,
