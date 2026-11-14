@@ -44,6 +44,23 @@ class MelonDSRenderer(
     var bottomScreenRect: Rect = Rect()
         private set
 
+    /**
+     * Frames actually presented by this renderer in the last second.
+     *
+     * This is deliberately NOT the engine's own FPS counter: the native
+     * getFPS() counts emulator-thread loop iterations, i.e. frames produced,
+     * including frames this renderer then discards as stale — it read a
+     * steady 60 while the user still felt outdoor stutter. Presented frames
+     * are what the eye sees, so this is the number the overlay shows and the
+     * one any auto-tuning must be driven by.
+     */
+    @Volatile
+    var presentedFps: Int = 0
+        private set
+
+    private var presentedFrameCount = 0
+    private var presentedWindowStartMs = 0L
+
     fun prepareNextFrame(glFenceSync: Long, textureId: Int) {
         synchronized(frameEventQueue) {
             frameEventQueue.add(FrameEvent(glFenceSync, textureId))
@@ -96,6 +113,16 @@ class MelonDSRenderer(
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, positions.capacity() / 2)
         GLES30.glDisableVertexAttribArray(ATTRIB_POS)
         GLES30.glDisableVertexAttribArray(ATTRIB_UV)
+
+        presentedFrameCount++
+        val nowMs = System.currentTimeMillis()
+        if (presentedWindowStartMs == 0L) {
+            presentedWindowStartMs = nowMs
+        } else if (nowMs - presentedWindowStartMs >= 1000L) {
+            presentedFps = (presentedFrameCount * 1000L / (nowMs - presentedWindowStartMs)).toInt()
+            presentedFrameCount = 0
+            presentedWindowStartMs = nowMs
+        }
     }
 
     private fun updateScreenCoordinates(surfaceWidth: Int, surfaceHeight: Int) {

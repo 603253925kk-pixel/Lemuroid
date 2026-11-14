@@ -105,9 +105,37 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 setOnTouchListener { _, event -> handleSurfaceTouch(event) }
             }
 
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        root.addView(surfaceView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-        root.addView(buildControlsOverlay())
+        // Layout (M4 fix, after the #48 device test): the dual-screen surface
+        // gets an exact 2:3 box at the top of the screen — sized by width, or
+        // by height on wide/short screens so the controls deck always keeps
+        // its share — and every on-screen control lives in the deck below it.
+        // The first version stretched the surface over the whole tall screen:
+        // the renderer centered the screens with large black bars above and
+        // below, and the buttons floated in those bars and over the bottom
+        // screen's edges, which the user (rightly) rejected on sight.
+        val metrics = resources.displayMetrics
+        val maxSurfaceHeight = (metrics.heightPixels * 0.68f).toInt()
+        var surfaceWidth = metrics.widthPixels
+        var surfaceHeight = surfaceWidth * 3 / 2
+        if (surfaceHeight > maxSurfaceHeight) {
+            surfaceHeight = maxSurfaceHeight
+            surfaceWidth = surfaceHeight * 2 / 3
+        }
+        val root =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.BLACK)
+            }
+        root.addView(
+            surfaceView,
+            LinearLayout.LayoutParams(surfaceWidth, surfaceHeight).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            },
+        )
+        root.addView(
+            buildControlsDeck(),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
+        )
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(
@@ -305,13 +333,23 @@ class MelonDSGameActivity : ImmersiveActivity() {
     private fun startFpsUpdates() {
         lifecycleScope.launch {
             while (emulationStarted) {
-                fpsLabel.text = "${MelonEmulator.getFPS()} FPS"
+                // Presented frames first (what the eye actually gets); the
+                // engine counter second, because it counts produced frames
+                // the renderer may have discarded and read 60 during visible
+                // outdoor stutter in the #48 test.
+                fpsLabel.text = "显示 ${renderer.presentedFps} · 引擎 ${MelonEmulator.getFPS()} FPS"
                 delay(1000)
             }
         }
     }
 
-    private fun buildControlsOverlay(): View {
+    /**
+     * The controls deck below the screens: L/R and the FPS readout on the top
+     * row, D-pad and ABXY centered vertically on the left/right, and the
+     * SELECT/START/fast-forward/exit cluster along the bottom. Nothing in
+     * here overlaps the game screens.
+     */
+    private fun buildControlsDeck(): View {
         val overlay = FrameLayout(this).apply { isClickable = false }
 
         fpsLabel =
@@ -357,9 +395,8 @@ class MelonDSGameActivity : ImmersiveActivity() {
         dpad.addView(padButton("▶", Input.RIGHT, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER_VERTICAL or Gravity.END))
         overlay.addView(
             dpad,
-            FrameLayout.LayoutParams(dp(168), dp(168), Gravity.BOTTOM or Gravity.START).apply {
+            FrameLayout.LayoutParams(dp(168), dp(168), Gravity.CENTER_VERTICAL or Gravity.START).apply {
                 leftMargin = dp(16)
-                bottomMargin = dp(28)
             },
         )
 
@@ -371,9 +408,8 @@ class MelonDSGameActivity : ImmersiveActivity() {
         abxy.addView(padButton("A", Input.A, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER_VERTICAL or Gravity.END))
         overlay.addView(
             abxy,
-            FrameLayout.LayoutParams(dp(168), dp(168), Gravity.BOTTOM or Gravity.END).apply {
+            FrameLayout.LayoutParams(dp(168), dp(168), Gravity.CENTER_VERTICAL or Gravity.END).apply {
                 rightMargin = dp(16)
-                bottomMargin = dp(28)
             },
         )
 
