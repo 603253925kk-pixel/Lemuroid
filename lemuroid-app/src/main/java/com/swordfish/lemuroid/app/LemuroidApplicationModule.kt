@@ -50,6 +50,7 @@ import com.swordfish.lemuroid.lib.core.CoresSelection
 import com.swordfish.lemuroid.lib.game.GameLoader
 import com.swordfish.lemuroid.lib.injection.PerActivity
 import com.swordfish.lemuroid.lib.injection.PerApp
+import com.swordfish.lemuroid.lib.library.CheatsManager
 import com.swordfish.lemuroid.lib.library.covers.CustomCoverManager
 import com.swordfish.lemuroid.lib.library.LemuroidLibrary
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
@@ -148,6 +149,7 @@ abstract class LemuroidApplicationModule {
                     Migrations.VERSION_8_9,
                     Migrations.VERSION_9_10,
                     Migrations.VERSION_10_11,
+                    Migrations.VERSION_11_12,
                 )
                 .fallbackToDestructiveMigration()
                 .build()
@@ -262,6 +264,11 @@ abstract class LemuroidApplicationModule {
         @PerApp
         @JvmStatic
         fun coreVariablesManager(sharedPreferences: Lazy<SharedPreferences>) = CoreVariablesManager(sharedPreferences)
+
+        @Provides
+        @PerApp
+        @JvmStatic
+        fun cheatsManager(retrogradeDatabase: RetrogradeDatabase) = CheatsManager(retrogradeDatabase.cheatDao())
 
         @Provides
         @PerApp
