@@ -124,10 +124,12 @@ class MelonDSGameActivity : ImmersiveActivity() {
         if (loadStarted) return
         loadStarted = true
         lifecycleScope.launch {
+            var stage = "ensureSetup"
             val loadResult =
                 runCatching {
                     withContext(Dispatchers.IO) {
                         MelonDSEngine.ensureSetup(applicationContext)
+                        stage = "setupEmulator"
                         MelonEmulator.setupEmulator(
                             MelonDSEmulatorConfig.build(applicationContext),
                             assets,
@@ -140,6 +142,7 @@ class MelonDSGameActivity : ImmersiveActivity() {
                             screenshotBuffer,
                             glContext,
                         )
+                        stage = "loadRom"
                         val sramFile = saveBridge.migrateToEngine(game)
                         MelonEmulator.loadRom(
                             Uri.parse(game.fileUri),
@@ -154,7 +157,7 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 onSuccess = { result ->
                     if (result.isTerminal) {
                         Timber.e("melonDS engine failed to load ROM: $result")
-                        failAndExit()
+                        failAndExit("loadRom: $result")
                     } else {
                         MelonEmulator.startEmulation()
                         emulationStarted = true
@@ -169,14 +172,23 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 },
                 onFailure = { error ->
                     Timber.e(error, "melonDS engine failed to start")
-                    failAndExit()
+                    failAndExit("$stage: ${error.javaClass.simpleName}: ${error.message}")
                 },
             )
         }
     }
 
-    private fun failAndExit() {
-        displayToast("新引擎加载失败，请在设置中关闭「NDS 使用 melonDS 新引擎」后重试", android.widget.Toast.LENGTH_LONG)
+    private fun failAndExit(detail: String? = null) {
+        // Show the real failure reason: the generic message alone hid for
+        // two builds whether the native libraries, the emulator setup or
+        // the ROM load was at fault (Build APK #44/#45 both failed blind).
+        val message =
+            if (detail.isNullOrBlank()) {
+                "新引擎加载失败，请在设置中关闭「NDS 使用 melonDS 新引擎」后重试"
+            } else {
+                "新引擎加载失败（$detail），请在设置中关闭「NDS 使用 melonDS 新引擎」后重试"
+            }
+        displayToast(message, android.widget.Toast.LENGTH_LONG)
         setResult(Activity.RESULT_CANCELED)
         finish()
     }
