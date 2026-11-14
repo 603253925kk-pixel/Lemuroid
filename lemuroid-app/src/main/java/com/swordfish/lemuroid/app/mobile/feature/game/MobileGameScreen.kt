@@ -10,14 +10,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
@@ -61,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -173,6 +171,39 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                     currentControllerConfig?.touchControllerID == TouchControllerID.MELONDS
             val isGbaShell = currentControllerConfig?.touchControllerID == TouchControllerID.GBA
 
+            // Deterministic viewport size for the DS and GBA portrait
+            // shells: the renderer aspect-fits the core frame into the
+            // viewport, so the viewport's content rect is given exactly the
+            // frame's aspect (2:3 stacked DS, 3:2 GBA) and the shell frame
+            // drawn inside the placeholder aligns by construction instead
+            // of by cross-layer measurement. The deck reserve mirrors the
+            // touch controls' footprint, so the pads keep their room.
+            val screenGeometry =
+                if (!isLandscape && (isDualScreenShell || isGbaShell)) {
+                    val density = LocalDensity.current
+                    val cutoutTop =
+                        with(density) {
+                            WindowInsets.displayCutout.getTop(density).toDp()
+                        }
+                    val dialSize =
+                        160.dp *
+                            lerp(
+                                TouchControllerSettingsManager.MIN_SCALE,
+                                TouchControllerSettingsManager.MAX_SCALE,
+                                touchControllerSettings?.scale
+                                    ?: TouchControllerSettingsManager.DEFAULT_SCALE,
+                            )
+                    GameScreenLayout.computePortraitScreenGeometry(
+                        maxWidth = maxWidth,
+                        maxHeight = maxHeight,
+                        cutoutTop = cutoutTop,
+                        dualScreen = isDualScreenShell,
+                        deckReserve = maxOf(280.dp, dialSize + 120.dp),
+                    )
+                } else {
+                    null
+                }
+
             ConstraintLayout(
                 modifier = Modifier.fillMaxSize(),
                 constraintSet =
@@ -185,26 +216,33 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                             } else {
                                 null
                             },
+                        portraitScreenGeometry = screenGeometry,
                     ),
             ) {
                 if (!isLandscape) {
                     // The shell layers are drawn over the game surface, so they
                     // must leave the game viewport (tracked in viewportPosition)
-                    // unpainted or they would cover the game completely.
+                    // unpainted or they would cover the game completely. With a
+                    // computed geometry the base body only needs a generously
+                    // inflated opening: the frame drawn by the viewport box
+                    // itself defines the exact window edges.
                     HandheldShellFullBody(
                         modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SHELL_BODY),
                         screenRect = viewportPosition.value,
-                        dualScreen = isDualScreenShell,
+                        dualScreen = isDualScreenShell && screenGeometry == null,
+                        holeInflate = if (screenGeometry != null) 8.dp else 0.dp,
                     )
-                    HandheldScreenBezel(
-                        modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SCREEN_BEZEL),
-                        screenRect = viewportPosition.value,
-                        dualScreen = isDualScreenShell,
-                    )
-                    if (isDualScreenShell) {
-                        HandheldHingeBand(
-                            modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_HINGE_BAND),
+                    if (screenGeometry == null) {
+                        HandheldScreenBezel(
+                            modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SCREEN_BEZEL),
+                            screenRect = viewportPosition.value,
+                            dualScreen = isDualScreenShell,
                         )
+                        if (isDualScreenShell) {
+                            HandheldHingeBand(
+                                modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_HINGE_BAND),
+                            )
+                        }
                     }
                     if (isGbaShell) {
                         HandheldSpeakerGrille(
@@ -213,13 +251,24 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                     }
                 }
 
-                Box(
-                    modifier =
-                        Modifier
-                            .layoutId(GameScreenLayout.CONSTRAINTS_GAME_VIEW)
-                            .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
-                            .onGloballyPositioned { viewportPosition.value = it.boundsInRoot() },
+                GameViewportShellBox(
+                    frameMode =
+                        when {
+                            screenGeometry == null -> ShellFrameMode.NONE
+                            isDualScreenShell -> ShellFrameMode.DUAL
+                            else -> ShellFrameMode.SINGLE
+                        },
+                    onPositioned = { viewportPosition.value = it },
                 )
+
+                if (screenGeometry != null && isDualScreenShell) {
+                    // The hinge band details sit on the strip the viewport
+                    // box paints across the seam, so they are emitted after
+                    // it and draw on top of the frame.
+                    HandheldHingeBand(
+                        modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_HINGE_BAND),
+                    )
+                }
 
                 val isVisible =
                     touchControllerSettings != null &&
@@ -227,7 +276,19 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                         touchControlsVisibleState.value
 
                 if (isVisible) {
-                    CompositionLocalProvider(LocalLemuroidPadTheme provides LemuroidPadTheme()) {
+                    CompositionLocalProvider(
+                        LocalLemuroidPadTheme provides
+                            if (isLandscape) {
+                                LemuroidPadTheme()
+                            } else {
+                                // Portrait handheld shell: the primary dials
+                                // sit in a dark recessed socket on the body
+                                // instead of on a light glass disc.
+                                LemuroidPadTheme(
+                                    level1FillOverride = Color(0f, 0f, 0f, 0.30f),
+                                )
+                            },
+                    ) {
                         if (!isLandscape) {
                             HandheldShellBody(
                                 modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_BOTTOM_CONTAINER),
