@@ -85,7 +85,7 @@
     <string name="cover_search_title">在线找封面</string>
     <string name="cover_search_keyword_label">搜索关键词</string>
     <string name="cover_search_search">搜索</string>
-    <string name="cover_search_hint">封面来自该系统在 libretro 官方缩略图库中的目录。如果没找到合适的，可以把关键词改成游戏的英文原名再搜。</string>
+    <string name="cover_search_hint">封面来自多个来源：libretro 官方封面库 + 网络图片搜索（百度、Bing），中文名和改版游戏也能搜到。</string>
     <string name="cover_search_loading">正在加载封面列表…</string>
     <string name="cover_search_empty">没有找到相似的封面，换个关键词试试。</string>
     <string name="cover_search_error">封面列表加载失败，请检查网络后重试。</string>

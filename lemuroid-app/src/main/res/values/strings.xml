@@ -111,7 +111,7 @@
     <string name="cover_search_title">Find cover online</string>
     <string name="cover_search_keyword_label">Game title keywords</string>
     <string name="cover_search_search">Search</string>
-    <string name="cover_search_hint">Covers come from this system\'s library in the libretro thumbnails collection. If nothing fits, try searching with the game\'s original English title.</string>
+    <string name="cover_search_hint">Covers are gathered from several sources: the libretro thumbnails collection plus web image search (Baidu and Bing), so Chinese-titled and modified games can be found too.</string>
     <string name="cover_search_loading">Loading cover list…</string>
     <string name="cover_search_empty">No similar covers found. Try different keywords.</string>
     <string name="cover_search_error">Couldn\'t load the cover list. Check your connection and try again.</string>
