@@ -1,5 +1,6 @@
 package com.swordfish.lemuroid.app.mobile.feature.game
 
+import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ChainStyle
 import androidx.constraintlayout.compose.ConstraintSet
 import androidx.constraintlayout.compose.Dimension
@@ -12,6 +13,8 @@ object GameScreenLayout {
     const val CONSTRAINTS_RIGHT_PAD = "rightPad"
     const val CONSTRAINTS_GAME_VIEW = "gameView"
     const val CONSTRAINTS_GAME_CONTAINER = "gameContainer"
+    const val CONSTRAINTS_SHELL_BODY = "shellBody"
+    const val CONSTRAINTS_SCREEN_BEZEL = "screenBezel"
 
     fun buildConstraintSet(
         isLandscape: Boolean,
@@ -31,15 +34,35 @@ object GameScreenLayout {
             val rightPad = createRefFor(CONSTRAINTS_RIGHT_PAD)
             val gameContainer = createRefFor(CONSTRAINTS_GAME_CONTAINER)
             val bottomContainer = createRefFor(CONSTRAINTS_BOTTOM_CONTAINER)
+            val shellBody = createRefFor(CONSTRAINTS_SHELL_BODY)
+            val screenBezel = createRefFor(CONSTRAINTS_SCREEN_BEZEL)
 
             val gamePadChain = createHorizontalChain(leftPad, rightPad, chainStyle = ChainStyle.SpreadInside)
+
+            constrain(shellBody) {
+                width = Dimension.fillToConstraints
+                height = Dimension.fillToConstraints
+                top.linkTo(parent.top)
+                bottom.linkTo(parent.bottom)
+                absoluteLeft.linkTo(parent.absoluteLeft)
+                absoluteRight.linkTo(parent.absoluteRight)
+            }
+
+            constrain(screenBezel) {
+                width = Dimension.fillToConstraints
+                height = Dimension.fillToConstraints
+                top.linkTo(parent.top, margin = 8.dp)
+                absoluteLeft.linkTo(parent.absoluteLeft, margin = 8.dp)
+                absoluteRight.linkTo(parent.absoluteRight, margin = 8.dp)
+                bottom.linkTo(gameView.bottom, margin = 8.dp)
+            }
 
             constrain(gameView) {
                 width = Dimension.fillToConstraints
                 height = Dimension.fillToConstraints
-                top.linkTo(parent.top)
-                absoluteLeft.linkTo(parent.absoluteLeft)
-                absoluteRight.linkTo(parent.absoluteRight)
+                top.linkTo(parent.top, margin = 18.dp)
+                absoluteLeft.linkTo(parent.absoluteLeft, margin = 18.dp)
+                absoluteRight.linkTo(parent.absoluteRight, margin = 18.dp)
                 bottom.linkTo(leftPad.top)
             }
 
