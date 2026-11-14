@@ -27,6 +27,7 @@ import com.swordfish.lemuroid.common.longAnimationDuration
 import com.swordfish.lemuroid.lib.controller.ControllerConfig
 import com.swordfish.lemuroid.lib.core.CoreVariablesManager
 import com.swordfish.lemuroid.lib.game.GameLoader
+import com.swordfish.lemuroid.lib.library.CheatsManager
 import com.swordfish.lemuroid.lib.library.GameSystem
 import com.swordfish.lemuroid.lib.library.SystemCoreConfig
 import com.swordfish.lemuroid.lib.library.db.entity.Game
@@ -52,12 +53,13 @@ class BaseGameScreenViewModel(
     controllerConfigsManager: ControllerConfigsManager,
     system: GameSystem,
     systemCoreConfig: SystemCoreConfig,
-    sharedPreferences: SharedPreferences,
+    private val sharedPreferences: SharedPreferences,
     savesManager: SavesManager,
     statesManager: StatesManager,
     statesPreviewManager: StatesPreviewManager,
     coreVariablesManager: CoreVariablesManager,
     rumbleManager: RumbleManager,
+    cheatsManager: CheatsManager,
 ) : ViewModel(), DefaultLifecycleObserver {
     class Factory(
         private val appContext: Context,
@@ -73,6 +75,7 @@ class BaseGameScreenViewModel(
         private val statesPreviewManager: StatesPreviewManager,
         private val coreVariablesManager: CoreVariablesManager,
         private val rumbleManager: RumbleManager,
+        private val cheatsManager: CheatsManager,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return BaseGameScreenViewModel(
@@ -89,6 +92,7 @@ class BaseGameScreenViewModel(
                 statesPreviewManager,
                 coreVariablesManager,
                 rumbleManager,
+                cheatsManager,
             ) as T
         }
     }
@@ -101,6 +105,8 @@ class BaseGameScreenViewModel(
             systemCoreConfig,
             settingsManager,
             coreVariablesManager,
+            game,
+            cheatsManager,
             sideEffects,
             rumbleManager,
             viewModelScope,
@@ -144,6 +150,21 @@ class BaseGameScreenViewModel(
 
     val loadingState = MutableStateFlow(false)
 
+    // Fast-forward speed currently applied to the retro view. 1 means off.
+    // This is the single source of truth shared by the game menu, the gamepad
+    // shortcut and the on-screen fast-forward button.
+    val fastForwardSpeed = MutableStateFlow(1)
+
+    // Fast-forward multiplier used when fast-forward is switched on. Stored in
+    // preferences so the choice made in the on-screen button survives restarts.
+    val fastForwardPreferredSpeed =
+        MutableStateFlow(
+            sharedPreferences
+                .getInt(PREF_FAST_FORWARD_SPEED, DEFAULT_FAST_FORWARD_SPEED)
+                .takeIf { it in FAST_FORWARD_SPEEDS }
+                ?: DEFAULT_FAST_FORWARD_SPEED,
+        )
+
     private inline fun withLoading(block: () -> Unit) {
         loadingState.value = true
         block()
@@ -182,6 +203,7 @@ class BaseGameScreenViewModel(
         lifecycle: LifecycleOwner,
     ): GLRetroView {
         val (gameData, result) = retroGameView.createRetroView(context, lifecycle)
+        result.frameSpeed = fastForwardSpeed.value
         viewModelScope.launch {
             gameData.quickSaveData?.let {
                 saves.restoreAutoSaveAsync(it)
@@ -233,6 +255,10 @@ class BaseGameScreenViewModel(
         tilt.changeTiltConfiguration(tiltConfig)
     }
 
+    fun refreshCheats() {
+        retroGameView.refreshCheats()
+    }
+
     fun isMenuPressed(): Flow<Boolean> {
         return touchControls.isMenuPressed()
     }
@@ -268,10 +294,31 @@ class BaseGameScreenViewModel(
     }
 
     fun toggleFastForward() {
-        Timber.d("Loading quick save")
-        retroGameView.retroGameView?.apply {
-            frameSpeed = if (frameSpeed == 1) 2 else 1
+        Timber.d("Toggle fast forward")
+        setFastForwardSpeed(
+            if (fastForwardSpeed.value > 1) 1 else fastForwardPreferredSpeed.value,
+        )
+    }
+
+    fun setFastForwardEnabled(enabled: Boolean) {
+        setFastForwardSpeed(if (enabled) fastForwardPreferredSpeed.value else 1)
+    }
+
+    fun selectFastForwardSpeed(speed: Int) {
+        if (speed !in FAST_FORWARD_SPEEDS) return
+        fastForwardPreferredSpeed.value = speed
+        sharedPreferences
+            .edit()
+            .putInt(PREF_FAST_FORWARD_SPEED, speed)
+            .apply()
+        if (fastForwardSpeed.value > 1) {
+            setFastForwardSpeed(speed)
         }
+    }
+
+    private fun setFastForwardSpeed(speed: Int) {
+        fastForwardSpeed.value = speed
+        retroGameView.retroGameView?.frameSpeed = speed
     }
 
     suspend fun reset() =
@@ -325,5 +372,14 @@ class BaseGameScreenViewModel(
 
     fun sendMotionEvent(event: MotionEvent): Boolean {
         return inputs.sendMotionEvent(event)
+    }
+
+    companion object {
+        private const val PREF_FAST_FORWARD_SPEED = "pref_fast_forward_speed"
+        private const val DEFAULT_FAST_FORWARD_SPEED = 2
+
+        // GLRetroView.frameSpeed is an integer multiplier, so only whole
+        // speeds can be offered.
+        val FAST_FORWARD_SPEEDS = listOf(2, 3, 4)
     }
 }
