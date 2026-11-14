@@ -1,13 +1,9 @@
 package com.swordfish.lemuroid.app.mobile.shared.compose.ui
 
-import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
 private val LightColorScheme =
     lightColorScheme(
@@ -80,16 +76,34 @@ fun AppTheme(
     darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val dynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val colors =
-        when {
-            dynamicColor && darkTheme -> dynamicDarkColorScheme(LocalContext.current)
-            dynamicColor && !darkTheme -> dynamicLightColorScheme(LocalContext.current)
-            darkTheme -> DarkColorScheme
-            else -> LightColorScheme
-        }
+    // The handheld-style UI uses a fixed palette instead of Material You dynamic colors.
+    val colors = if (darkTheme) DeckDarkColorScheme else LightColorScheme
 
     MaterialTheme(colorScheme = colors) {
         content()
     }
 }
+
+private val DeckDarkColorScheme =
+    darkColorScheme(
+        primary = DeckColors.Accent,
+        onPrimary = DeckColors.OnSurface,
+        primaryContainer = DeckColors.SurfaceRaised,
+        onPrimaryContainer = DeckColors.OnSurface,
+        secondary = DeckColors.AccentPurple,
+        onSecondary = DeckColors.OnSurface,
+        secondaryContainer = DeckColors.SurfaceRaised,
+        onSecondaryContainer = DeckColors.OnSurface,
+        tertiary = DeckColors.IconBlue,
+        background = DeckColors.Background,
+        onBackground = DeckColors.OnSurface,
+        surface = DeckColors.Background,
+        onSurface = DeckColors.OnSurface,
+        surfaceVariant = DeckColors.Surface,
+        onSurfaceVariant = DeckColors.OnSurfaceMuted,
+        surfaceContainer = DeckColors.Surface,
+        surfaceContainerHigh = DeckColors.SurfaceRaised,
+        surfaceContainerHighest = DeckColors.SurfaceRaised,
+        outline = DeckColors.Outline,
+        outlineVariant = DeckColors.Outline,
+    )
