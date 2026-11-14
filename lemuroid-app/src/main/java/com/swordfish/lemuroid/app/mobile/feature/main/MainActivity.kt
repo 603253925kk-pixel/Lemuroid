@@ -26,6 +26,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fredporciuncula.flow.preferences.FlowSharedPreferences
 import com.swordfish.lemuroid.R
+import com.swordfish.lemuroid.app.mobile.feature.coversearch.CoverSearchScreen
+import com.swordfish.lemuroid.app.mobile.feature.coversearch.CoverSearchViewModel
 import com.swordfish.lemuroid.app.mobile.feature.favorites.FavoritesScreen
 import com.swordfish.lemuroid.app.mobile.feature.favorites.FavoritesViewModel
 import com.swordfish.lemuroid.app.mobile.feature.games.GamesScreen
@@ -262,6 +264,25 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
                             onGameFavoriteToggle = onGameFavoriteToggle,
                         )
                     }
+                    composable(MainRoute.COVER_SEARCH) { entry ->
+                        val gameId = entry.arguments?.getInt("gameId")
+                        CoverSearchScreen(
+                            modifier = Modifier.padding(padding),
+                            viewModel =
+                                viewModel(
+                                    factory =
+                                        CoverSearchViewModel.Factory(
+                                            applicationContext,
+                                            retrogradeDb,
+                                            gameId!!,
+                                        ),
+                                ),
+                            onSetCustomCoverUri = { game, uri ->
+                                gameInteractor.onSetCustomCoverUri(game, uri)
+                            },
+                            onDone = { navController.popBackStack() },
+                        )
+                    }
                     composable(MainRoute.SETTINGS) {
                         SettingsScreen(
                             modifier = Modifier.padding(padding),
@@ -360,6 +381,9 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
                 onClearCustomName = { game -> gameInteractor.onClearCustomName(game) },
                 onSetCustomCoverUri = { game, uri -> gameInteractor.onSetCustomCoverUri(game, uri) },
                 onClearCustomCoverUri = { game -> gameInteractor.onClearCustomCoverUri(game) },
+                onSearchCoverOnline = { game ->
+                    navController.navigate("coversearch/${game.id}")
+                },
             )
 
             if (infoDialogDisplayed.value) {
