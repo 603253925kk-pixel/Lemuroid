@@ -98,6 +98,13 @@ class MelonDSGameActivity : ImmersiveActivity() {
         playTimeTracker = MelonDSPlayTimeTracker(game, retrogradeDb, lifecycleScope)
 
         renderer = MelonDSRenderer(onGlContextReady = { glContext -> onGlContextReady(glContext) })
+        // The OpenGL compositor's output texture is BGRA-ordered by design;
+        // the software renderer's is plain RGBA. Swap channels back only on
+        // the OpenGL path (see MelonDSRenderer.swapRedBlue).
+        renderer.swapRedBlue =
+            !SharedPreferencesHelper
+                .getSharedPreferences(applicationContext)
+                .getBoolean(getString(R.string.pref_key_melonds_software_renderer), false)
         surfaceView =
             GLSurfaceView(this).apply {
                 setEGLContextClientVersion(3)

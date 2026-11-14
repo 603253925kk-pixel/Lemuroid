@@ -35,6 +35,22 @@ class MelonDSRenderer(
 
     private var program = 0
     private var uniformTex = -1
+    private var uniformSwap = -1
+
+    /**
+     * Whether the frame texture's red and blue channels must be swapped back.
+     *
+     * The core's OpenGL compositor writes its output texture in BGRA order
+     * on purpose (its final shader emits `pixel.bgr`; the desktop frontend
+     * presents it as BGRA). Sampling that texture as plain RGBA swaps red
+     * and blue across the whole picture — blue water turns orange, a red cap
+     * turns blue, greens barely change, which is exactly what the #48/#50
+     * device tests showed. The software renderer's texture is true RGBA and
+     * must NOT be swapped, so the activity sets this from the configured
+     * renderer before the emulator starts.
+     */
+    @Volatile
+    var swapRedBlue: Boolean = false
 
     private var posBuffer: FloatBuffer? = null
     private var uvBuffer: FloatBuffer? = null
@@ -71,6 +87,7 @@ class MelonDSRenderer(
         GLES30.glClearColor(0f, 0f, 0f, 1f)
         program = createProgram()
         uniformTex = GLES30.glGetUniformLocation(program, "uTex")
+        uniformSwap = GLES30.glGetUniformLocation(program, "uSwap")
         onGlContextReady(EGL14.eglGetCurrentContext().nativeHandle)
     }
 
@@ -103,6 +120,7 @@ class MelonDSRenderer(
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glUniform1i(uniformTex, 0)
+        GLES30.glUniform1i(uniformSwap, if (swapRedBlue) 1 else 0)
 
         positions.position(0)
         uvs.position(0)
@@ -226,8 +244,9 @@ class MelonDSRenderer(
             "#version 300 es\n" +
                 "precision mediump float;\n" +
                 "uniform sampler2D uTex;\n" +
+                "uniform int uSwap;\n" +
                 "in vec2 vUv;\n" +
                 "out vec4 oColor;\n" +
-                "void main() { oColor = texture(uTex, vUv); }\n"
+                "void main() { vec4 c = texture(uTex, vUv); oColor = (uSwap == 1) ? c.bgra : c; }\n"
     }
 }
