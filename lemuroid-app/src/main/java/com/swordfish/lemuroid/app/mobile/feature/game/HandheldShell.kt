@@ -6,8 +6,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -26,15 +31,19 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -52,6 +61,7 @@ object ShellTheme {
     val bezelBorder = Color.Black.copy(alpha = 0.6f)
     val detailLabel = Color(0xFFC9C9D1)
     val grilleDot = Color(0xFF131315)
+    val powerLed = Color(0xFF7ED491)
     val fastForwardInactive = Color(0xFF3A3A41)
     val fastForwardActive = Color(0xFFB7A6E8)
     val fastForwardLabel = Color(0xFFC9C9D1)
@@ -94,14 +104,48 @@ fun HandheldShellBody(
                     val inset = 28.dp.toPx()
                     val stroke = 2.dp.toPx()
                     drawLine(
-                        color = Color.White.copy(alpha = 0.45f),
+                        color = Color.White.copy(alpha = 0.22f),
                         start = Offset(inset, stroke),
                         end = Offset(size.width - inset, stroke),
                         strokeWidth = stroke,
                         cap = StrokeCap.Round,
                     )
+                    // Soft shadow in the seam right below the top edge, so
+                    // the deck reads as a separate plate of the body.
+                    drawRect(
+                        brush =
+                            Brush.verticalGradient(
+                                listOf(Color.Black.copy(alpha = 0.28f), Color.Transparent),
+                                startY = 0f,
+                                endY = 18.dp.toPx(),
+                            ),
+                    )
                 },
-    )
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        // Power LED with its micro label, like on real handhelds: a small
+        // lived detail on the deck, centered clear of the two pads.
+        Row(
+            modifier = Modifier.padding(top = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(ShellTheme.powerLed),
+            )
+            Text(
+                text = "POWER",
+                color = ShellTheme.detailLabel.copy(alpha = 0.75f),
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+        }
+    }
 }
 
 /**
@@ -137,6 +181,7 @@ private fun DrawScope.drawShellFill(
     dualScreen: Boolean = false,
     bandHeightPx: Float = 0f,
     cutBand: Boolean = false,
+    holeInflatePx: Float = 0f,
 ) {
     if (screenRect == null || ownBounds == null) {
         if (outerCornerRadiusPx > 0f) {
@@ -147,12 +192,15 @@ private fun DrawScope.drawShellFill(
         return
     }
 
+    // The opening can be inflated by a few dp when another layer defines the
+    // exact window edges (the geometry-driven screen frame): this base fill
+    // then only has to stay out of the way, never to be pixel-exact.
     val window =
         Rect(
-            left = (screenRect.left - ownBounds.left).coerceIn(0f, size.width),
-            top = (screenRect.top - ownBounds.top).coerceIn(0f, size.height),
-            right = (screenRect.right - ownBounds.left).coerceIn(0f, size.width),
-            bottom = (screenRect.bottom - ownBounds.top).coerceIn(0f, size.height),
+            left = (screenRect.left - ownBounds.left - holeInflatePx).coerceIn(0f, size.width),
+            top = (screenRect.top - ownBounds.top - holeInflatePx).coerceIn(0f, size.height),
+            right = (screenRect.right - ownBounds.left + holeInflatePx).coerceIn(0f, size.width),
+            bottom = (screenRect.bottom - ownBounds.top + holeInflatePx).coerceIn(0f, size.height),
         )
 
     val holes = mutableListOf<RoundRect>()
@@ -236,6 +284,7 @@ fun HandheldShellFullBody(
     style: ShellStyle = ShellStyle.CHARCOAL,
     screenRect: Rect? = null,
     dualScreen: Boolean = false,
+    holeInflate: Dp = 0.dp,
 ) {
     var ownBounds by remember { mutableStateOf<Rect?>(null) }
 
@@ -252,6 +301,7 @@ fun HandheldShellFullBody(
                         holeCornerRadiusPx = 10.dp.toPx(),
                         dualScreen = dualScreen,
                         bandHeightPx = GameScreenLayout.HINGE_BAND_HEIGHT.toPx(),
+                        holeInflatePx = holeInflate.toPx(),
                     )
                     drawContent()
                 },
@@ -374,4 +424,201 @@ fun HandheldSpeakerGrille(modifier: Modifier = Modifier) {
         SpeakerDots(count = 6)
         SpeakerDots(count = 6)
     }
+}
+
+/** Which screen frame [GameViewportShellBox] draws around the viewport. */
+enum class ShellFrameMode {
+    /** No frame: generic shells keep the overlay layers, landscape none. */
+    NONE,
+
+    /** One screen window (GBA shell). */
+    SINGLE,
+
+    /** Two screen windows split by the hinge band (DS shell). */
+    DUAL,
+}
+
+/**
+ * The game viewport placeholder, with the handheld screen frame drawn in
+ * its own draw pass for the geometry-driven shells.
+ *
+ * The placeholder is what the layout measures to position the GL viewport,
+ * and this composable keeps the exact modifier chain that measurement has
+ * always used (layout id, display-cutout padding, position callback), then
+ * adds the frame drawing on the *same* layout node. The frame is therefore
+ * painted in the very coordinate system the viewport is reported in: its
+ * openings cannot drift from the rendered game, whatever insets the device
+ * applies. The frame overhangs the placeholder on every side (drawing is
+ * not clipped to the node bounds), forming the bezel around the content.
+ *
+ * In dual-screen mode the content rect holds both DS screens with the seam
+ * at its vertical center; the frame leaves two openings and paints the
+ * hinge band strip across the seam. The band details (L/R marks, speaker
+ * dots) are a separate composable laid out over the same strip.
+ */
+@Composable
+fun GameViewportShellBox(
+    frameMode: ShellFrameMode,
+    onPositioned: (Rect) -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .layoutId(GameScreenLayout.CONSTRAINTS_GAME_VIEW)
+                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
+                .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
+                .drawWithContent {
+                    if (frameMode != ShellFrameMode.NONE) {
+                        drawHandheldScreenFrame(dualScreen = frameMode == ShellFrameMode.DUAL)
+                    }
+                    drawContent()
+                },
+    )
+}
+
+/**
+ * Paints the screen frame around the viewport content: a near-black bezel
+ * ring with a soft drop shadow and a faint top sheen, the openings stroked
+ * with an inner shadow so the screens read as recessed, and (dual-screen
+ * only) the body-colored hinge band with cylindrical shading across the
+ * seam. Local coordinates: the content rect is (0, 0, width, height); the
+ * frame overhangs it by 12dp on every side.
+ */
+private fun DrawScope.drawHandheldScreenFrame(dualScreen: Boolean) {
+    val overhang = 12.dp.toPx()
+    val outerRadius = 20.dp.toPx()
+    val holeRadius = 10.dp.toPx()
+    val bandHeightPx = GameScreenLayout.HINGE_BAND_HEIGHT.toPx()
+
+    val outer =
+        Rect(
+            left = -overhang,
+            top = -overhang,
+            right = size.width + overhang,
+            bottom = size.height + overhang,
+        )
+
+    val midY = size.height / 2f
+    val halfBand = bandHeightPx / 2f
+
+    val openings =
+        if (dualScreen) {
+            listOf(
+                Rect(0f, 0f, size.width, midY - halfBand),
+                Rect(0f, midY + halfBand, size.width, size.height),
+            )
+        } else {
+            listOf(Rect(0f, 0f, size.width, size.height))
+        }
+    val bandRect =
+        if (dualScreen) {
+            Rect(outer.left, midY - halfBand, outer.right, midY + halfBand)
+        } else {
+            null
+        }
+
+    fun framePath(outerDy: Float): Path =
+        Path().apply {
+            fillType = PathFillType.EvenOdd
+            addRoundRect(
+                RoundRect(
+                    Rect(outer.left, outer.top + outerDy, outer.right, outer.bottom + outerDy),
+                    CornerRadius(outerRadius),
+                ),
+            )
+            openings.forEach { addRoundRect(RoundRect(it, CornerRadius(holeRadius))) }
+            if (bandRect != null) addRect(bandRect)
+        }
+
+    // Drop shadow of the whole frame onto the body below.
+    drawPath(
+        path = framePath(outerDy = 5.dp.toPx()),
+        color = Color.Black.copy(alpha = 0.35f),
+    )
+
+    // Hinge band: body-colored base with a cylindrical shade, so the strip
+    // between the screens reads as the console's hinge barrel. The bezel
+    // fill below leaves this strip unpainted; the band's own details (L/R
+    // marks, dots) are drawn by a separate composable on top.
+    if (bandRect != null) {
+        drawRect(
+            brush =
+                Brush.verticalGradient(
+                    listOf(ShellTheme.bodyTop, ShellTheme.bodyBottom),
+                    startY = bandRect.top,
+                    endY = bandRect.bottom,
+                ),
+            topLeft = bandRect.topLeft,
+            size = bandRect.size,
+        )
+        drawRect(
+            brush =
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Black.copy(alpha = 0.30f),
+                        Color.White.copy(alpha = 0.10f),
+                        Color.Black.copy(alpha = 0.36f),
+                    ),
+                    startY = bandRect.top,
+                    endY = bandRect.bottom,
+                ),
+            topLeft = bandRect.topLeft,
+            size = bandRect.size,
+        )
+    }
+
+    // Bezel fill (frame ring only), plus a faint diagonal sheen on the ring.
+    drawPath(
+        path = framePath(outerDy = 0f),
+        brush =
+            Brush.verticalGradient(
+                listOf(ShellTheme.bezelTop, ShellTheme.bezelBottom),
+                startY = outer.top,
+                endY = outer.bottom,
+            ),
+    )
+    drawPath(
+        path = framePath(outerDy = 0f),
+        brush =
+            Brush.linearGradient(
+                listOf(Color.White.copy(alpha = 0.07f), Color.White.copy(alpha = 0f)),
+                start = Offset(outer.left, outer.top),
+                end = Offset(outer.left + outer.width * 0.55f, outer.top + outer.height * 0.55f),
+            ),
+    )
+
+    // Inner shadow stroke inside each opening and a hairline highlight just
+    // under its top edge: the screens sit *in* the frame, not on it.
+    val strokeWidth = 2.dp.toPx()
+    openings.forEach { opening ->
+        val inset = strokeWidth / 2f
+        drawRoundRect(
+            color = Color.Black.copy(alpha = 0.55f),
+            topLeft = Offset(opening.left + inset, opening.top + inset),
+            size = Size(opening.width - strokeWidth, opening.height - strokeWidth),
+            cornerRadius = CornerRadius(holeRadius),
+            style = Stroke(width = strokeWidth),
+        )
+        drawLine(
+            color = Color.White.copy(alpha = 0.10f),
+            start = Offset(opening.left + holeRadius, opening.top + 1.dp.toPx()),
+            end = Offset(opening.right - holeRadius, opening.top + 1.dp.toPx()),
+            strokeWidth = 1.dp.toPx(),
+        )
+    }
+
+    // Outer rim: dark outline with a hairline highlight along the top.
+    drawRoundRect(
+        color = ShellTheme.bezelBorder,
+        topLeft = outer.topLeft,
+        size = outer.size,
+        cornerRadius = CornerRadius(outerRadius),
+        style = Stroke(width = 1.5.dp.toPx()),
+    )
+    drawLine(
+        color = Color.White.copy(alpha = 0.12f),
+        start = Offset(outer.left + outerRadius, outer.top + 1.dp.toPx()),
+        end = Offset(outer.right - outerRadius, outer.top + 1.dp.toPx()),
+        strokeWidth = 1.dp.toPx(),
+    )
 }
