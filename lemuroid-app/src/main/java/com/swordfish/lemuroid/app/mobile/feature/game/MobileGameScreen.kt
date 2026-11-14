@@ -1,6 +1,9 @@
 package com.swordfish.lemuroid.app.mobile.feature.game
 
 import android.graphics.RectF
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,15 +16,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.RotateLeft
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -31,12 +39,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.layoutId
@@ -44,7 +56,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -57,6 +73,7 @@ import com.swordfish.touchinput.controller.R
 import com.swordfish.touchinput.radial.LemuroidPadTheme
 import com.swordfish.touchinput.radial.LocalLemuroidPadTheme
 import com.swordfish.touchinput.radial.sensors.TiltConfiguration
+import com.swordfish.touchinput.radial.settings.TouchControllerID
 import com.swordfish.touchinput.radial.settings.TouchControllerSettingsManager
 import com.swordfish.touchinput.radial.ui.GlassSurface
 import com.swordfish.touchinput.radial.ui.LemuroidButtonPressFeedback
@@ -92,6 +109,9 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
         val tiltConfiguration = viewModel.getTiltConfiguration().collectAsState(TiltConfiguration.Disabled)
         val tiltSimulatedStates = viewModel.getSimulatedTiltEvents().collectAsState(InputState())
         val tiltSimulatedControls = remember { derivedStateOf { tiltConfiguration.value.controlIds() } }
+
+        val fastForwardSpeedState = viewModel.fastForwardSpeed.collectAsState(1)
+        val fastForwardPreferredSpeedState = viewModel.fastForwardPreferredSpeed.collectAsState(2)
 
         val touchGamePads = currentControllerConfig?.getTouchControllerConfig()
         val leftGamePad = touchGamePads?.leftComposable
@@ -154,6 +174,12 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                     GameScreenLayout.buildConstraintSet(
                         isLandscape,
                         currentControllerConfig?.allowTouchOverlay ?: true,
+                        portraitGameViewRatio =
+                            if (currentControllerConfig?.touchControllerID == TouchControllerID.GBA) {
+                                GameScreenLayout.GAME_VIEW_RATIO_GBA
+                            } else {
+                                null
+                            },
                     ),
             ) {
                 if (!isLandscape) {
@@ -213,6 +239,19 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                     }
                 }
             }
+        }
+
+        if (!isLandscape && touchControlsVisibleState.value) {
+            FastForwardButton(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 20.dp),
+                fastForwardSpeed = fastForwardSpeedState.value,
+                preferredSpeed = fastForwardPreferredSpeedState.value,
+                onToggle = { viewModel.toggleFastForward() },
+                onSelectSpeed = { viewModel.selectFastForwardSpeed(it) },
+            )
         }
 
         val isLoading =
@@ -370,5 +409,87 @@ private fun MenuEditTouchControlRow(
             contentDescription = label,
         )
         slider()
+    }
+}
+
+/**
+ * On-screen fast-forward toggle for the handheld shell, sitting in the lower
+ * body area next to the start/select cluster. A tap toggles fast-forward at
+ * the selected multiplier; a long press opens the multiplier menu. The state
+ * comes from [BaseGameScreenViewModel], so the button, the game menu and the
+ * gamepad shortcut always agree.
+ */
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun FastForwardButton(
+    modifier: Modifier = Modifier,
+    fastForwardSpeed: Int,
+    preferredSpeed: Int,
+    onToggle: () -> Unit,
+    onSelectSpeed: (Int) -> Unit,
+) {
+    val isActive = fastForwardSpeed > 1
+    val displayedSpeed = if (isActive) fastForwardSpeed else preferredSpeed
+    var menuExpanded by remember { mutableStateOf(false) }
+    val buttonDescription =
+        stringResource(com.swordfish.lemuroid.R.string.game_fast_forward_button)
+
+    Box(modifier = modifier.wrapContentSize()) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isActive) {
+                                Color(0xFFB7A6E8)
+                            } else {
+                                Color(0xFF33333A).copy(alpha = 0.8f)
+                            },
+                        )
+                        .combinedClickable(
+                            onClick = onToggle,
+                            onLongClick = { menuExpanded = true },
+                        )
+                        .semantics { contentDescription = buttonDescription },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "»»",
+                    color = if (isActive) Color(0xFF2E2150) else Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Text(
+                text = "${displayedSpeed}x",
+                color = Color(0xFF4A4232),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+        ) {
+            BaseGameScreenViewModel.FAST_FORWARD_SPEEDS.forEach { speed ->
+                DropdownMenuItem(
+                    text = { Text(text = "${speed}x") },
+                    onClick = {
+                        onSelectSpeed(speed)
+                        menuExpanded = false
+                    },
+                    leadingIcon = {
+                        if (speed == preferredSpeed) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                )
+            }
+        }
     }
 }
