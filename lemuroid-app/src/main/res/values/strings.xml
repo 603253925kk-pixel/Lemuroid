@@ -104,6 +104,18 @@
     <string name="game_context_menu_add_custom_artwork">Add custom artwork</string>
     <string name="game_context_menu_remove_custom_artwork">Remove custom artwork</string>
     <string name="game_context_menu_custom_name_dialog_title">Set custom name</string>
+    <string name="game_context_menu_search_artwork_online">Search artwork online</string>
+
+    <string name="cover_search_title">Find cover online</string>
+    <string name="cover_search_keyword_label">Game title keywords</string>
+    <string name="cover_search_search">Search</string>
+    <string name="cover_search_hint">Covers come from this system\'s library in the libretro thumbnails collection. If nothing fits, try searching with the game\'s original English title.</string>
+    <string name="cover_search_loading">Loading cover list…</string>
+    <string name="cover_search_empty">No similar covers found. Try different keywords.</string>
+    <string name="cover_search_error">Couldn\'t load the cover list. Check your connection and try again.</string>
+    <string name="cover_search_retry">Retry</string>
+    <string name="cover_search_applying">Applying cover…</string>
+    <string name="cover_search_apply_error">Failed to apply this cover. Please pick another one.</string>
 
     <string name="home_notification_title">Enable notifications</string>
     <string name="home_notification_message">Lemuroid uses notifications to let you know when a game or operation is running in background.</string>
