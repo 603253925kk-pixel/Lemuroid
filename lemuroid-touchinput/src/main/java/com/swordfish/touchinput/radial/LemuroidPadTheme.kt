@@ -6,7 +6,16 @@ import androidx.compose.ui.graphics.DefaultShadowColor
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-class LemuroidPadTheme {
+class LemuroidPadTheme(
+    /**
+     * Optional replacement for the level1 fill (the disc behind the primary
+     * dials). Null keeps the stock translucent glass. The portrait handheld
+     * shell passes a dark tint so the dials sit in a recessed dark socket on
+     * the body instead of on a light glass disc; every other consumer keeps
+     * the default look.
+     */
+    level1FillOverride: Color? = null,
+) {
     private fun gray(
         luminosity: Float,
         opacity: Float,
@@ -30,7 +39,7 @@ class LemuroidPadTheme {
     val level2Shadow = DefaultShadowColor.copy(0.05f)
     val level2ShadowWidth = 4.dp
 
-    val level1Fill = gray(1.0f, 0.10f)
+    val level1Fill = level1FillOverride ?: gray(1.0f, 0.10f)
     val level1Shadow = DefaultShadowColor.copy(0.10f)
     val level1ShadowWidth = 4.dp
 
