@@ -20,8 +20,10 @@ import com.swordfish.lemuroid.lib.core.CoreVariablesManager
 import com.swordfish.lemuroid.lib.game.GameLoader
 import com.swordfish.lemuroid.lib.game.GameLoaderError
 import com.swordfish.lemuroid.lib.game.GameLoaderException
+import com.swordfish.lemuroid.lib.library.CheatsManager
 import com.swordfish.lemuroid.lib.library.GameSystem
 import com.swordfish.lemuroid.lib.library.SystemCoreConfig
+import com.swordfish.lemuroid.lib.library.db.entity.Cheat
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.storage.RomFiles
 import com.swordfish.libretrodroid.GLRetroView
@@ -43,6 +45,8 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
 
@@ -53,6 +57,8 @@ class GameViewModelRetroGameView(
     private val systemCoreConfig: SystemCoreConfig,
     private val settingsManager: SettingsManager,
     private val coreVariablesManager: CoreVariablesManager,
+    private val game: Game,
+    private val cheatsManager: CheatsManager,
     private val sideEffects: GameViewModelSideEffects,
     private val rumbleManager: RumbleManager,
     private val scope: CoroutineScope,
@@ -74,6 +80,9 @@ class GameViewModelRetroGameView(
 
     private val retroGameViewFlow = MutableStateFlow<GLRetroView?>(null)
     var retroGameView: GLRetroView? by MutableStateProperty(retroGameViewFlow)
+
+    private val cheatsMutex = Mutex()
+    private var appliedCheats: List<Cheat> = emptyList()
 
     fun getGameState(): Flow<GameState> {
         return gameState.debounce(200)
@@ -300,6 +309,10 @@ class GameViewModelRetroGameView(
         }
 
         owner.launchOnState(Lifecycle.State.RESUMED) {
+            initializeCheatsFlow()
+        }
+
+        owner.launchOnState(Lifecycle.State.RESUMED) {
             initializeRumbleFlow()
         }
     }
@@ -311,6 +324,62 @@ class GameViewModelRetroGameView(
             updateCoreVariables(options)
         } catch (e: Exception) {
             Timber.e(e)
+        }
+    }
+
+    private suspend fun initializeCheatsFlow() {
+        try {
+            waitRetroGameViewInitialized()
+            syncCheats()
+        } catch (e: Exception) {
+            Timber.e(e)
+        }
+    }
+
+    fun refreshCheats() {
+        scope.launch {
+            try {
+                syncCheats()
+            } catch (e: Exception) {
+                Timber.e(e)
+            }
+        }
+    }
+
+    /**
+     * Pushes the game's cheats to the running core. Every cheat owns a stable index
+     * (its sortIndex), so changed cheats are overwritten in place, toggled-off cheats
+     * are sent as disabled and indices that no longer exist are disabled as well.
+     * LibretroDroid 0.14.0 exposes no resetCheat() on GLRetroView, hence the
+     * index-by-index synchronization instead of a full reset.
+     */
+    private suspend fun syncCheats() {
+        cheatsMutex.withLock {
+            val retroGameView = retroGameView ?: return
+            val currentCheats = cheatsManager.getCheats(game.id)
+
+            appliedCheats
+                .filter { appliedCheat ->
+                    currentCheats.none { it.sortIndex == appliedCheat.sortIndex }
+                }
+                .forEach { appliedCheat ->
+                    retroGameView.setCheat(
+                        appliedCheat.sortIndex,
+                        false,
+                        CheatsManager.normalizeCode(appliedCheat.code),
+                    )
+                }
+
+            currentCheats.forEach { cheat ->
+                Timber.i("Applying cheat: ${cheat.sortIndex} ${cheat.enabled}")
+                retroGameView.setCheat(
+                    cheat.sortIndex,
+                    cheat.enabled,
+                    CheatsManager.normalizeCode(cheat.code),
+                )
+            }
+
+            appliedCheats = currentCheats
         }
     }
 
@@ -340,6 +409,10 @@ class GameViewModelRetroGameView(
 
     private fun handleRetroViewError(errorCode: Int) {
         Timber.e("Error in GLRetroView $errorCode")
+        if (errorCode == GLRetroView.ERROR_CHEAT) {
+            sideEffects.showToast(appContext.getString(R.string.game_toast_cheat_error))
+            return
+        }
         val gameLoaderError =
             when (errorCode) {
                 GLRetroView.ERROR_GL_NOT_COMPATIBLE -> GameLoaderError.GLIncompatible
