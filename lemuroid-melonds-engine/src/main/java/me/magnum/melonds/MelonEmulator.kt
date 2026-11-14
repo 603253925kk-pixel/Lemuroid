@@ -14,6 +14,12 @@ import me.magnum.melonds.ui.emulator.rewind.model.RewindWindow
 import java.nio.ByteBuffer
 
 object MelonEmulator {
+    init {
+        // See MelonDSAndroidInterface: the frontend library must be loaded
+        // before any native call; loading it twice is a no-op.
+        System.loadLibrary("melonDS-android-frontend")
+    }
+
     enum class LoadResult(val isTerminal: Boolean) {
         SUCCESS(false),
         SUCCESS_GBA_FAILED(false),
