@@ -2,6 +2,9 @@ name: Build APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -15,85 +18,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-
-      - name: Apply UI patch
-        run: |
-          base64 -d <<'PATCH_EOF' | gunzip > /tmp/deck-ui.patch
-          H4sICCln92oCA2RlY2stdWkucGF0Y2gAxT3ZcuO2su/+CuTllBRL1GJZXqomJ9biievY47mWM6n75IJEyMIZimRx8ZKU//12AyAJ
-          rqJsyddJ2RLZ3QC6G71hGZMvl6TdfuQBoR2LrUPP4Wabum7H9xadNeV257/0iXYWzrrjPzueueT+KgbsIODamXOLdZaMBqHHOo90
-          zTp/UNtcMcucwS/L+BmQ+R6JH9jsmSwBjKwdk5FetzscDA64bbIX0pU/hnE6PD5entCDdrtNOiZ76tihZR0cHh7ut2u//07a3VaX
-          HPZawyPy++8Hhy5d/KSPjABlI6ZsRJQNoGxIyoaibCDlg8ODQ752HQ/kZJsI+WIABdfxAc4JbZMG3LGNORB/9PB7LXCLvjphYIyc
-          l1rg/oq6zLjDB8wcO57NvBk+Kkf2Qjvga2aMxXc6typgQ27cOCZfcuZVApkefTYWFnc3Q+GvEVvxKnZEsDA403muhHtkzpoF3qtx
-          u1z6LKiG9ai74gvfGHmhv6oHOnYsx6sHOgs85ycb02omhDYPDNNF5en8+uvBIfmVjBzzFXQPGvLJ0vFIsGJkpbS27QevMIt8VF6C
-          TLHJXHBPQDl22194jNmAbkPzli8Icptg+x4FE4Lzz8Cn4s0FUHmiHqd24BPqMWLxx1UAdIgbetjFc0HXpSbhQNJHUtdqHnyn5v2K
-          rZnAM6n3U1CEfpJnJ7RMYjtgUxjxGDVRq5AoFXBkDgMUfegcHDI7XJOFRX2fiBk5w/E14CX8PFGLBI57TgTXW8nDuRMEzjp53iT/
-          yJfju+nFTUM8bnRfLi8nk8npeNpskeTReDCajvrNpiJ3ffFj+m0yvdORhpPuNI00Ohv1JuMY6ebq272GML6cHk2GaYT+eDIaCYQ3
-          XbbAMWI5z8wDiVpL4iyBJ5FsUWi+YwHPKfHkDBasIs88WMEz31kGIHPHJdFEUPymICQQzApkJ+VHLcd+FJID9hFmPjKDTISyABg+
-          BpEhEg3IyrFMH58JaoETLlax8kQy+l23DcvQJikbiuqqBLZWxuGcRGaCfIk/Kt4JBT7XhA0gyRdDSFAXKcpbWDWAy9u1BgxwFlCY
-          XF9I/xQmUguHPAWmqO9N5D7SAQuqeqn3lHxJnunP00/xR1mfBrPYk7C10EJvKFqMuif+tggaPvi2pJbPmgWE8H1DwBa9TfxDQ9gl
-          44l5AV9Q66tHTc7soGFxP7hdNgQjDRhtS/LUkLOi2SyimpjZiK/ZH+Qzt8FmRpwD0t9fGs1yaF8YOATfBI2tX3ObNYpf44+wd0BL
-          TCHjrxUPGJhJ97VBLXdF4UXXGBwvowlY9OMrNZCWvyHG0lKdrMJjQlkUls//ZsYzN2HCtUltEhLiL4H2RX2rAF9Q1I/YP0h3XQJf
-          wNE3BdpE22LuJzq8Ec++wseZcCi7DhAL6KtwkJ32FoP+wjDY8TEzT2gULGJUuOcR7jzWLGoDw83eSb91AgGn+AMP0KZmYRtPnD2D
-          7WTWORlRX3vzI3qBNjKnMHxJGtz/wX0O5roQQjhKYdE52rFrB4zLd8954ibzGuJbzsW78rWfc/6NZmkTUWd+4f41+At/gQYPgNuk
-          4gfojsH7AMOhL+UzCH8KnBDZ9LPOuyUVYV+ZjYTD1zLoHt9+m93fXYCznz2Mbu/vb28e4NE9PJjegTmobKlZ/vqNMPAMkjeL0PPA
-          po+lx7WYB5+W/NGgFkQJ9+iNb8H+QxeRc7uf6wLnBn59o0/8Ubi1EfV2ONlLG1Czfb7os2GPGsZ8Pj8enJ3uYbaXd2GH0728EZzv
-          R63ekBwetY4wvyTbp5dI/YCUZRHU5muZ/V2IT8wUs59bPHitg8VeXHj7Q4UZVi0cf+Vx+6eGs4fUF+IkYFRlQqpBcztgHl2Izzdh
-          gHhXyaOZE3oLtk3GfeF51H4EE2cH26DdVSWoefC/YBo4z1cYaPjlfM/jLbll3dAXEXJs056tq6e/DSbkgCa3H7dBedYG930L9NIi
-          RimDUOshi7WOjCtIXg7am+FS83RrhKuArev05p69BOVw25ReIlgPNHI931B/uYA00BaaSz6xlFOnPJOuo1T1zmO+AZE06Mwd8zfM
-          XgAPgNOgQ3ZgXMKvvxjmwfUKL5tgfDffz2QaoV58xVEJKYKBhEdL0HuRlE6YH3BbwG2i8Yfja1FA3KvNPgK47jFT7/WELX4K/oJF
-          OSB68i4DzayXaggf1T9tDXrkcHDcOu3HMWkeVEYwB/h/UtW4tByAsB8xs/FDSOmTsZ1HRZ+4okE9YrKALlbwZek5a1GQkGUrQQzL
-          FX6LPK+Yx+Q7SLkX4NUALWYnkU4LC1KBA008quSYuGAYVd0iPXTX45C3MzGuKIotGpuKyMD6BOxccEB8/LeK92BkiZjOSU5yABYH
-          uWnyRbGnbsZlKJ3UuKg0esVlj6O+XtsAp1OjtnFTXtsosNQN3TVl/EZRhUH5h8bK8fjfGMJbWBnoigJJVMLAkonqeA4/zYqa9Zd+
-          qv4SsaxmCSYC31CFSaaTMQu9JV2wO8p9ZtZmwmmWB6IupeX7CbQWdACc9s2YQdTIRix4hmmioUZUY4uPaNFnY8wwAkqitKhwoKds
-          6TkudN03QAFD5jeaYFG9KUxV8k9q8rV/O8jXjvxZNE+/pCbRvw3PcaBfX3QS8AxeFVAB942VSlEx/qKS2YhwM0UhMgvo8WVGpb8N
-          bf19WlSirswD0ULaxTR0EgLkKitnWSfLBJZAKHLMwKqy8LPRFGYzlQDnwopGPkFGpkALJakzjq9RnlVDxP7IfgAnRHlN52+rHAkr
-          wCA/8F8Lj7tqttVgVQnJZv7xWwGoRecM58c/BOOmRo32moV0/EQRE+UpgHPsMaYY5axNGfvIBqZ7IvRY/q4sbnQ65LvjktAl4K+E
-          VxPlSn1WOUvxQsRIAFVJiz6B+yLzkFtob5AsBfZ5j4IuDAloaaT9SlqOXBNAk6ewqU9Cn3m+4iThoJcVNFzH/dO9dxppdolxFMZC
-          YFe4ubEU5NMnBpgBiwx5wTyEft2UeLtqj5d4gQLn2h+ggS6pZUMQFpTV0JP6W2KyIIIsdiYXiwVMsaiq31RFoaCY8lv5EGSOXFEs
-          K7JWuWetKnwT3IcyArgmX1aqrmLL9lOpsvj3jum0id62U2oTvbrTqpLOu6fW4aZS6IbpVVMBtfFeCP6tQyvgroXVLZczP5KCT9cp
-          /4zhvb2RJOSAglNcrWYKKsi1akyLhvZiNQMsi907GAgGXsg2tgaeBpykEDdwBTuY6gCFFII9cSf0rdfExWzujSfJpnldwef2bnnc
-          fhd/21vytr0XvrY/ztO3zaFHmaEvDOZ7p2UZTZpKOiUrWH/QfVeBQX1XYK//1EkqfEwqzNFrI5uRlJpzGWwebhtoHtYOMkVkV4IA
-          6hIUJAXakrF0opqTvbVVzgYxOStaYy0QfpZ+iTEVMWr51MeC1IbxlKx7V0BjgWvG/0ad7w1AfBtAZRkMgJOamDFjaz5yLLMCdU1f
-          cLXex1a2WJZOP3o7yH4UVaPdr2H5LEA74nceGURw1OrM1IOdr1xvbkmtavW6p4PeybFhmPOuaS7ZHla1avRlh8tbNVoT69qtIW6j
-          7OGi9sE71rmiZgzVDNYv02VTw2aB8afHy8u2UfHdEBvWxHqAXxsai1DMNGB+BNviXEJgHFUxt8SE2ci8W3d7TFyxBi+1LdofYAj+
-          J6RifXBL1Bu2drytse7YEjz2alu0GYSoW+MEjrs1zqu92MtqzkbYBcbzi+DCF5GMnENHuDWkP2idYRW+etFAWzAg1QsGd5sASlad
-          jbgA/l4CUap370gyu1rZ2ExG4Vt87lHv1biWf6/QQs9w9SGsudASBtzyjcgAxTYKO6PMoCgxkndTipYjxtQzI8P6FfJgdwc0I3rX
-          3A92SO6G2SHECD+Fyp4M0O6fnsjNTPpCyw33FxGKWl9JFZ9VqIWpKMzBWehi92TMlYotypoviL+iYinJyKchPIFxmUz5lh4o4ttb
-          ERmLmmJB7Cnrxao2qaK7TImSY8nxTi1bxsx7ELgPmHA/+NBus7gFP5zHjRTnMtu3bCaxtd6+kNppH6V2NqwltYJtTVqAV1M89UQj
-          XUxOON9Dz7UKhPNxwTjgeR8WkE76DyordewCGVXL52OyKe6CFNOZCKq6g63kpJW2S0pvyh43YgNvzKb391ffvs4exrd309nDbHo9
-          Hd9f3X5Ls6L5uWK/Q2uwe5mb3Hct+vow547/wO2l88kCL2hfSPvsREhbBAGfJO3R1e3sc0SMYXVOwPeMWvuQMDWfqL1g5kP0/JMl
-          XNC+jO/6wlv2Br28iK9sNwxiGee3GiRfcx5S1JLjjqK3jzt7Z1DPo6+G67Hlw0/2+rCi0MXFw5IxE6vTD3gmKNZIG3IKv/kJ2qCS
-          l9pe+OMq8Shb/P/SiHzzUiEGcntobwiZ81lWJb7KTDhWiljwKQ3ICmb2zIPFKmMlfFUtnTuOxaj9HdSBeQx0VCQfjbjzsZ7QMHAw
-          amiJGm+2Plgz0BL4GRF/xTR5HxJmNuZdccc3CPiD8qxurPlO6fD1mnk+f2K4xf9dLE8qEZ9mbONOC1uyX7ZXtvVerq/Md7Nbq6bk
-          +D2ywr1YspX5CYwubkQarT5EKGCz+kcFYemds/a1QOUgJY1cjtt4R3c9aAG7VWkDP+Sckprc/mRqck+slrxuI0a1s2oS4X4Dp5JH
-          1wNC+LxCjyqH1BDAQoT9bqvXw1JTv9U72iDEgvmFubu/oPYVeBLnEVIX/xPSdnHcsU6K8N55Bg2U5Oc6TwtrScYCAz5LvcMKQ0Ms
-          cb0EeYJ6Hi0XrfbNOlWDreuL38k/aAK48G4O+upTLR7Kw5vog7ELv4ilFxx6rI+tHa42yWJiRxUjOyHvaHz8+BLTBvK17s+Yn5yc
-          zOe93d+fsalz2g0aR9veoJEr8lZdo/GxSxuS/eq3Hn/kNrWISy2YL6zsmoU/r86JzajXnlu4fwcSslewzGI92W/J4/cEek+o2Mql
-          zuLDg3bgtF1Rr0o2poc+7ndX7cTbHICkSN2io/bO/L+4Myjhr74lfBTvI4sWjMVdA91Jd9IbNBM4teSdAoLsYti7zAPJvcxp0Glv
-          2r/QQG/DwOJ2ml5/3B8fXcTbHhBMbmhLQU2P+93+tJmFkbW8FOTZaDAZp+nFa/cpwMs+/HfSLAATS/xpohdnFxfTgk5Gu+7OiVAj
-          fe+gPHSf7J7IHruXBFqpkTTjJnBfGvPaC3Cjj+CdpW3O3OURBVsEKRpJ16LgIjWEwfh0cqnLLUmR02y5PLvsXmTghG1PgR31JyeD
-          UQbsO/iVDLHjy0k/C5UX2slkOMp1DnOM9BBAQcfdDNRdRlQAdiz06W2vRjtyq1h8wFB0L6a7oBFlq4+6Pbowh2Crj80uW853uDGg
-          Xjf24g2KGkKfgGuYh4NWr1+0kllw7m/64jKP484kal3Gjy9cXutkJDyag5Uyx/Gx0S3OU4Iihmt7rycwt7+aKVl5Rq5O2JKGVtUx
-          0QR+Kg7JMJFt7WbFuu55wehY3YalRovP44VZc26AyCF9FiXB7Jk1USITayD9fus0OpmWVbnGQVIQ0wevpS7a3rt1ft9dxRUzvezu
-          OGXPwXxpYjGY1qz03SJ0FVcZjNUur9KzRK2Cop7UyUzBQjvc9Rl2UlzysFcjGbWgLOTgjJ6dmWeG0e+ax4P58FMsZNyHvZrHuBW5
-          VQpybgiYz7bcKpWPl0n29LLhQHSM29jrWIob9Ul0rg4CHuYUKoxZG6DUODptvtp0zReTd2Ne485FHbVGP63aOAVmsF1h4VyLBhDK
-          rQ1xVcpYZqdotaLyCYY42R7DdJXbpzPP5dnb065YATgZto4GkYW7cF15w4pERLaL7xCyyvq92nqtLIfaTHuu207SaJL2b+RPMMn6
-          sVTsn2JsZJeEuhg/pnezq9tvxmzyn4erb/fkt8yLh/HtZDozZgmZyBImG6rF9u7MyZ5UY//6VzIW7F2xcjR05hqq6NWsJvtLEd2s
-          IGoR1unktDZVfsDKDQDlFLSd2RULecF9UX6JaaEPSeOSv0BAHKWj3PYDRk3c2B/NT/K/ThiNSbFdSx1ij4RFubj7TeFvMgOQfc7P
-          qAN1GlQzB42FrsCqkZSLUlrXaGo7fCET0mdCURdUupUxJVppCwisITRIe0yVeSVQkJMUwcUJYStHML5bqMIXFzVQglfUks+AKWZJ
-          52UOlWphVgxfSXrrYcw2YBa1FuDpgly/oiRVA5zrZQkNNClXpPoyKgEvHHFcANhMd1YEW0H0h7z3spCFRYQL4UvPF6hGqiVVAY+r
-          SvWkW4TJ/KCmasSlHX1Q8mEerJgFKejmLsJSsQmxo5xvsvlceDYbptGHKq51iEfp+nwJuQCk63TYZ2cny10Eo7Wa/0gcWqsBjDqG
-          rX6XHMLvk5r5+btzZYkxWzgue3eKTfZ6VRHe+7hNE88edcfS+f2x4a6ZD11spCFHFwzMFrgFSG4Yr4MXnSSTeHWrDVtXJQ5r3s1U
-          I3TH3Ut4FUJmq3cNjG1qJOnMp0YyogzdhqJKAq/uVMS1M3G3bR0cZad3VrPZ4U1Q77kD+0ksUhtXydHAyn4UFY8oNLamMVS8Ix0P
-          gAJVY07hqVr1/IHXlsiZsYdjBmU9AYzctvgt8WYWXr65NZbY0SLLCb2huFG0f9TqdbNFsvyei+L95dk7eEjlsdjovl11CbK8Rld8
-          Se0ezCaD+izKHq2UFbvcAndFbU5cMFR0NW9xjW6xVW2u6ERs4X0PcqH8F3k7QumFqCkR3CPKbE0tS2IXcPtNnQcaYhm9NxgWSDat
-          P0qsgl5FIUDfX1IGJtbo33JVA8nHccTbrNk1JNcb2lpPXZScOOSB2HuP2r5LZZIe3/thctFfM6KqbQIqIZ8W5ObGMlsNVpCNo9ZG
-          8KlRGVF3/tChMhQseKf2ZVQTuc4AZvcZeZRbtQjdZyFb6u7hM1l6POu2+qfZbT9WRrHkAp3aZRGXnprnJO2jI5XfTklUzQFnkGoh
-          ZS08FoSenaaXyFG9/bA+vUXd2EBQL/9voT0f05xdaM2HNEbbkCbOZsHbYhrJe4x3JEcy97cfLeNlDlUn6vz6q2QeM4lIQ8Vyudgp
-          QcU/ShAxQL4Q/1pCvHruOc9G8T9PkN0HJUWn3U9wTrSIRBl5vFyg4F+UyFx4UHSJH+YOjf4w44gy1yHk2iu9ASFzw4669AD/6Pe+
-          /x+kXVq5FmgAAA==
-          PATCH_EOF
-          git apply --whitespace=nowarn /tmp/deck-ui.patch
 
       - name: Build debug APK
         run: ./gradlew assembleFreeBundleDebug --no-daemon
