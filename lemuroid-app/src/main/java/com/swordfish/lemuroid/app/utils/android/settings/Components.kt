@@ -6,20 +6,27 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.alorma.compose.settings.storage.base.SettingValueState
+import com.swordfish.lemuroid.app.mobile.shared.compose.ui.DeckColors
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.alorma.compose.settings.ui.SettingsSlider
 import com.alorma.compose.settings.ui.SettingsSwitch
@@ -116,7 +123,10 @@ fun LemuroidCardSettingsGroup(
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp),
         ) {
-            OutlinedCard {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = DeckColors.Surface),
+            ) {
                 if (title != null) {
                     SettingsGroupTitleSmall(title)
                 }
@@ -136,9 +146,10 @@ fun LemuroidSettingsSlider(
     title: @Composable () -> Unit,
     subtitle: @Composable () -> Unit = { },
 ) {
-    val defaultColors = ListItemDefaults.colors()
+    val defaultColors = ListItemDefaults.colors(containerColor = Color.Transparent)
     val disabledColors =
         ListItemDefaults.colors(
+            containerColor = Color.Transparent,
             headlineColor = defaultColors.disabledHeadlineColor,
             leadingIconColor = defaultColors.disabledLeadingIconColor,
             trailingIconColor = defaultColors.disabledTrailingIconColor,
@@ -179,13 +190,28 @@ private fun lemuroidSettingsColor(enabled: Boolean): ListItemColors {
     val defaultColors = ListItemDefaults.colors()
 
     if (enabled) {
-        return defaultColors
+        return ListItemDefaults.colors(containerColor = Color.Transparent)
     }
 
     return ListItemDefaults.colors(
+        containerColor = Color.Transparent,
         headlineColor = defaultColors.disabledHeadlineColor,
         leadingIconColor = defaultColors.disabledLeadingIconColor,
         trailingIconColor = defaultColors.disabledTrailingIconColor,
         supportingColor = defaultColors.supportingTextColor.copy(alpha = 0.3f),
+    )
+}
+
+/** Colored line icon used as the leading icon of a settings row. */
+@Composable
+fun DeckSettingIcon(
+    imageVector: ImageVector,
+    tint: Color,
+) {
+    Icon(
+        modifier = Modifier.size(26.dp),
+        imageVector = imageVector,
+        contentDescription = null,
+        tint = tint,
     )
 }
