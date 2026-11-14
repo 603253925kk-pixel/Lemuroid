@@ -156,6 +156,15 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                         currentControllerConfig?.allowTouchOverlay ?: true,
                     ),
             ) {
+                if (!isLandscape) {
+                    HandheldShellFullBody(
+                        modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SHELL_BODY),
+                    )
+                    HandheldScreenBezel(
+                        modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_SCREEN_BEZEL),
+                    )
+                }
+
                 Box(
                     modifier =
                         Modifier
@@ -172,7 +181,7 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                 if (isVisible) {
                     CompositionLocalProvider(LocalLemuroidPadTheme provides LemuroidPadTheme()) {
                         if (!isLandscape) {
-                            PadContainer(
+                            HandheldShellBody(
                                 modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_BOTTOM_CONTAINER),
                             )
                         } else if (!currentControllerConfig.allowTouchOverlay) {
