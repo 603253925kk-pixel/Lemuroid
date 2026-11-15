@@ -30,6 +30,9 @@ class MelonDSPlayTimeTracker(
     private val flushMutex = Mutex()
     private var started = false
 
+    /** Milliseconds played in this session (since the tracker started). */
+    fun sessionPlayTimeMillis(): Long = SystemClock.elapsedRealtime() - sessionStartElapsed
+
     fun start() {
         if (started) return
         started = true

@@ -37,7 +37,7 @@ class GameLauncher(
             val coreConfig = coresSelection.getCoreConfigForSystem(system)
             gameLaunchTaskHandler.handleGameStart(activity.applicationContext)
             if (shouldUseMelonDSEngine(activity, game, coreConfig, leanback)) {
-                MelonDSGameActivity.launchGame(activity, game)
+                MelonDSGameActivity.launchGame(activity, game, coreConfig)
             } else {
                 BaseGameActivity.launchGame(activity, coreConfig, game, loadSave, leanback)
             }

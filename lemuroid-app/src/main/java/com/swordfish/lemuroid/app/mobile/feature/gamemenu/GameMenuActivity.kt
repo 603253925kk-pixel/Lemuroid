@@ -48,9 +48,12 @@ import com.swordfish.lemuroid.app.mobile.feature.gamemenu.coreoptions.GameMenuCo
 import com.swordfish.lemuroid.app.mobile.feature.gamemenu.coreoptions.GameMenuCoreOptionsViewModel
 import com.swordfish.lemuroid.app.mobile.feature.gamemenu.states.GameMenuStatesScreen
 import com.swordfish.lemuroid.app.mobile.feature.gamemenu.states.GameMenuStatesViewModel
+import com.swordfish.lemuroid.app.mobile.feature.gamemenu.states.MelonDSEngineStatesScreen
+import com.swordfish.lemuroid.app.mobile.feature.gamemenu.states.MelonDSEngineStatesViewModel
 import com.swordfish.lemuroid.app.mobile.shared.compose.ui.AppTheme
 import com.swordfish.lemuroid.app.shared.GameMenuContract
 import com.swordfish.lemuroid.app.shared.coreoptions.LemuroidCoreOption
+import com.swordfish.lemuroid.app.shared.game.melonds.MelonDSStatesManager
 import com.swordfish.lemuroid.app.shared.input.InputDeviceManager
 import com.swordfish.lemuroid.common.kotlin.serializable
 import com.swordfish.lemuroid.lib.android.RetrogradeComponentActivity
@@ -69,6 +72,9 @@ class GameMenuActivity : RetrogradeComponentActivity() {
 
     @Inject
     lateinit var statesManager: StatesManager
+
+    @Inject
+    lateinit var melonDSStatesManager: MelonDSStatesManager
 
     @Inject
     lateinit var statesPreviewManager: StatesPreviewManager
@@ -92,6 +98,15 @@ class GameMenuActivity : RetrogradeComponentActivity() {
         val allTiltConfigurations: List<TiltConfiguration>,
         val totalPlayTimeMillis: Long = 0,
         val sessionPlayTimeMillis: Long = 0,
+        // New-engine path (vendored melonDS): the save/load slots are the
+        // engine's own states, not the libretro ones, and the engine exposes
+        // no runtime audio toggle or in-game touch-controls editor — the
+        // corresponding entries are hidden rather than shown dead. All
+        // default to the legacy libretro behaviour so the old path is
+        // untouched.
+        val engineStates: Boolean = false,
+        val audioToggleSupported: Boolean = true,
+        val editTouchControlsSupported: Boolean = true,
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,6 +156,12 @@ class GameMenuActivity : RetrogradeComponentActivity() {
                     extras?.getLong(GameMenuContract.EXTRA_TOTAL_PLAY_TIME_MILLIS, 0) ?: 0,
                 sessionPlayTimeMillis =
                     extras?.getLong(GameMenuContract.EXTRA_SESSION_PLAY_TIME_MILLIS, 0) ?: 0,
+                engineStates =
+                    extras?.getBoolean(GameMenuContract.EXTRA_ENGINE_STATES, false) ?: false,
+                audioToggleSupported =
+                    extras?.getBoolean(GameMenuContract.EXTRA_AUDIO_TOGGLE_SUPPORTED, true) ?: true,
+                editTouchControlsSupported =
+                    extras?.getBoolean(GameMenuContract.EXTRA_EDIT_TOUCH_CONTROLS_SUPPORTED, true) ?: true,
             )
 
         setContent {
@@ -225,6 +246,38 @@ class GameMenuActivity : RetrogradeComponentActivity() {
                                         statesManager,
                                         true,
                                         statesPreviewManager,
+                                    ),
+                            ),
+                            onStateClicked = {
+                                onResult { putExtra(GameMenuContract.RESULT_LOAD, it) }
+                            },
+                        )
+                    }
+                    composable(GameMenuRoute.ENGINE_SAVE) {
+                        MelonDSEngineStatesScreen(
+                            viewModel(
+                                factory =
+                                    MelonDSEngineStatesViewModel.Factory(
+                                        application,
+                                        gameMenuRequest,
+                                        melonDSStatesManager,
+                                        false,
+                                    ),
+                            ),
+                            onStateClicked = {
+                                onResult { putExtra(GameMenuContract.RESULT_SAVE, it) }
+                            },
+                        )
+                    }
+                    composable(GameMenuRoute.ENGINE_LOAD) {
+                        MelonDSEngineStatesScreen(
+                            viewModel(
+                                factory =
+                                    MelonDSEngineStatesViewModel.Factory(
+                                        application,
+                                        gameMenuRequest,
+                                        melonDSStatesManager,
+                                        true,
                                     ),
                             ),
                             onStateClicked = {

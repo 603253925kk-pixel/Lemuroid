@@ -14,14 +14,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.lifecycleScope
 import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.game.GameService
+import com.swordfish.lemuroid.app.mobile.feature.gamemenu.GameMenuActivity
+import com.swordfish.lemuroid.app.shared.GameMenuContract
 import com.swordfish.lemuroid.app.shared.ImmersiveActivity
+import com.swordfish.lemuroid.app.shared.coreoptions.LemuroidCoreOption
 import com.swordfish.lemuroid.app.shared.game.BaseGameActivity
 import com.swordfish.lemuroid.common.displayToast
+import com.swordfish.lemuroid.lib.library.SystemCoreConfig
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.preferences.SharedPreferencesHelper
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.storage.DirectoriesManager
 import com.swordfish.touchinput.radial.layouts.shared.ComposeTouchLayouts
+import com.swordfish.touchinput.radial.sensors.TiltConfiguration
 import gg.padkit.inputevents.InputEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -47,9 +52,9 @@ import javax.inject.Inject
  * upstream app layer (EmulatorActivity/ViewModel and its twelve repository
  * collaborators).
  *
- * Deliberately absent for now: savestate UI (engine states are not compatible
- * with the libretro ones, so no half-wired entry point is shown), the shell's
- * Compose game menu and the DS handheld shell (later milestones).
+ * Deliberately absent for now: the shell's Compose game menu (the ☰ deck
+ * button opens the shared GameMenuActivity since the menu-restore batch)
+ * and the DS handheld shell (later milestones).
  */
 class MelonDSGameActivity : ImmersiveActivity() {
     @Inject
@@ -58,7 +63,11 @@ class MelonDSGameActivity : ImmersiveActivity() {
     @Inject
     lateinit var directoriesManager: DirectoriesManager
 
+    @Inject
+    lateinit var melonDSStatesManager: MelonDSStatesManager
+
     private lateinit var game: Game
+    private lateinit var systemCoreConfig: SystemCoreConfig
     private lateinit var saveBridge: MelonDSSaveBridge
     private lateinit var playTimeTracker: MelonDSPlayTimeTracker
 
@@ -95,10 +104,17 @@ class MelonDSGameActivity : ImmersiveActivity() {
     @Volatile
     private var playTimeTrackingActive = false
 
+    // Game-menu state: set while the shared GameMenuActivity is on top, so a
+    // second ☰ press cannot stack another menu and the result handler knows
+    // whether the session was running when the menu opened.
+    private var menuOpen = false
+    private var menuOpenedWhileRunning = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         GameService.startService(applicationContext, intent)
         game = intent.getSerializableExtra(EXTRA_GAME) as Game
+        systemCoreConfig = intent.getSerializableExtra(EXTRA_SYSTEM_CORE_CONFIG) as SystemCoreConfig
         saveBridge = MelonDSSaveBridge(directoriesManager.getSavesDirectory())
         playTimeTracker = MelonDSPlayTimeTracker(game, retrogradeDb, lifecycleScope)
 
@@ -240,6 +256,138 @@ class MelonDSGameActivity : ImmersiveActivity() {
         finish()
     }
 
+    // -------------------------------------------------------------- game menu
+
+    /**
+     * Opens the shared system menu (GameMenuActivity), the same menu the
+     * libretro path shows: play time, engine-native savestate slots, quit,
+     * restart, fast-forward and the cheats entry (cheats themselves are
+     * applied by the M3 adapter). The engine is paused while the menu is up.
+     *
+     * Entries the engine cannot serve are hidden by the request, not shown
+     * dead: no runtime audio toggle (the engine has none), no in-game
+     * touch-controls editor (it belongs to the libretro screen). The
+     * save/load slots are the engine's own states in `states/melonds-engine/`
+     * — never the libretro `states/melonds/` slots, which are a different
+     * format and would corrupt the session if loaded here.
+     */
+    private fun openMenu() {
+        if (menuOpen) return
+        if (!emulationStarted) {
+            displayToast("游戏加载中，请稍等")
+            return
+        }
+        menuOpen = true
+        menuOpenedWhileRunning = emulationStarted && !emulationPaused
+        if (menuOpenedWhileRunning) {
+            MelonEmulator.pauseEmulation()
+            emulationPaused = true
+        }
+        lifecycleScope.launch {
+            val totalPlayTime =
+                withContext(Dispatchers.IO) {
+                    retrogradeDb.gameDao().selectById(game.id)?.totalPlayTimeMillis
+                        ?: game.totalPlayTimeMillis
+                }
+            val intent =
+                Intent(this@MelonDSGameActivity, GameMenuActivity::class.java).apply {
+                    putExtra(GameMenuContract.EXTRA_CORE_OPTIONS, emptyArray<LemuroidCoreOption>())
+                    putExtra(GameMenuContract.EXTRA_ADVANCED_CORE_OPTIONS, emptyArray<LemuroidCoreOption>())
+                    putExtra(GameMenuContract.EXTRA_GAME, game)
+                    putExtra(GameMenuContract.EXTRA_SYSTEM_CORE_CONFIG, systemCoreConfig)
+                    putExtra(GameMenuContract.EXTRA_AUDIO_ENABLED, true)
+                    putExtra(GameMenuContract.EXTRA_FAST_FORWARD_SUPPORTED, true)
+                    putExtra(GameMenuContract.EXTRA_FAST_FORWARD, fastForwardState.value)
+                    putExtra(GameMenuContract.EXTRA_DISKS, 0)
+                    putExtra(GameMenuContract.EXTRA_CURRENT_DISK, 0)
+                    putExtra(GameMenuContract.EXTRA_TOTAL_PLAY_TIME_MILLIS, totalPlayTime)
+                    putExtra(GameMenuContract.EXTRA_SESSION_PLAY_TIME_MILLIS, playTimeTracker.sessionPlayTimeMillis())
+                    putExtra(GameMenuContract.EXTRA_CURRENT_TILT_CONFIG, TiltConfiguration.Disabled)
+                    putExtra(GameMenuContract.EXTRA_TILT_ALL_CONFIGS, emptyArray<TiltConfiguration>())
+                    putExtra(GameMenuContract.EXTRA_ENGINE_STATES, true)
+                    putExtra(GameMenuContract.EXTRA_AUDIO_TOGGLE_SUPPORTED, false)
+                    putExtra(GameMenuContract.EXTRA_EDIT_TOUCH_CONTROLS_SUPPORTED, false)
+                }
+            startActivityForResult(intent, MENU_REQUEST)
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
+    }
+
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != MENU_REQUEST) return
+        menuOpen = false
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            resumeAfterMenu()
+            return
+        }
+        when {
+            data.getBooleanExtra(GameMenuContract.RESULT_QUIT, false) -> {
+                exitGame()
+                return
+            }
+            data.getBooleanExtra(GameMenuContract.RESULT_RESET, false) -> {
+                lifecycleScope.launch {
+                    val ok =
+                        withContext(Dispatchers.IO) {
+                            runCatching { MelonEmulator.resetEmulation() }.getOrDefault(false)
+                        }
+                    if (!ok) displayToast("重启失败")
+                    resumeAfterMenu()
+                }
+                return
+            }
+            data.hasExtra(GameMenuContract.RESULT_SAVE) -> {
+                val slot = data.getIntExtra(GameMenuContract.RESULT_SAVE, 0)
+                lifecycleScope.launch {
+                    val ok =
+                        withContext(Dispatchers.IO) {
+                            runCatching {
+                                MelonEmulator.saveState(Uri.fromFile(melonDSStatesManager.stateFile(game, slot)))
+                            }.getOrDefault(false)
+                        }
+                    displayToast(if (ok) "即时存档已保存" else "即时存档保存失败")
+                    resumeAfterMenu()
+                }
+                return
+            }
+            data.hasExtra(GameMenuContract.RESULT_LOAD) -> {
+                val slot = data.getIntExtra(GameMenuContract.RESULT_LOAD, 0)
+                lifecycleScope.launch {
+                    val ok =
+                        withContext(Dispatchers.IO) {
+                            runCatching {
+                                MelonEmulator.loadState(Uri.fromFile(melonDSStatesManager.stateFile(game, slot)))
+                            }.getOrDefault(false)
+                        }
+                    displayToast(if (ok) "即时存档已载入" else "即时存档载入失败")
+                    resumeAfterMenu()
+                }
+                return
+            }
+            data.hasExtra(GameMenuContract.RESULT_ENABLE_FAST_FORWARD) -> {
+                val enabled = data.getBooleanExtra(GameMenuContract.RESULT_ENABLE_FAST_FORWARD, false)
+                fastForwardState.value = enabled
+                MelonEmulator.setFastForwardEnabled(enabled)
+            }
+            // RESULT_CHEATS_CHANGED: cheats are edited in the shell database
+            // by the menu and applied by the M3 adapter; nothing to do here.
+        }
+        resumeAfterMenu()
+    }
+
+    private fun resumeAfterMenu() {
+        if (menuOpenedWhileRunning && emulationStarted && emulationPaused && !lifecyclePaused && !isFinishing) {
+            MelonEmulator.resumeEmulation()
+            emulationPaused = false
+        }
+        menuOpenedWhileRunning = false
+    }
+
     // -------------------------------------------------------------- lifecycle
 
     override fun onPause() {
@@ -318,6 +466,12 @@ class MelonDSGameActivity : ImmersiveActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Physical gamepad / keyboard menu key: opens the system menu on
+        // press, like the libretro path (no hold needed for a real button).
+        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) openMenu()
+            return true
+        }
         val input =
             when (event.keyCode) {
                 KeyEvent.KEYCODE_BUTTON_A -> Input.A
@@ -364,10 +518,8 @@ class MelonDSGameActivity : ImmersiveActivity() {
      * buttons use the same KeyEvent codes as physical gamepads (see
      * [dispatchKeyEvent]); the deck-only buttons map to engine functions:
      * mic (hold to blow), lid-close (hold to close the DS lid). The menu
-     * button is intentionally unbound for now: the new-engine path has no
-     * game menu yet, and silently exiting or freezing on it would be worse
-     * than a button that waits for the menu to exist (TODO: wire it when
-     * the new-engine game menu lands).
+     * button opens the shared system menu on press — tap and long-press
+     * alike, as the user asked (a press fires at touch-down either way).
      */
     private fun handlePadInputEvent(events: List<InputEvent>) {
         events.forEach { event ->
@@ -384,7 +536,7 @@ class MelonDSGameActivity : ImmersiveActivity() {
                         KeyEvent.KEYCODE_BUTTON_SELECT -> setPadInput(Input.SELECT, event.pressed)
                         KeyEvent.KEYCODE_BUTTON_L2 -> MelonEmulator.setMicrophoneEnabled(event.pressed)
                         KeyEvent.KEYCODE_BUTTON_THUMBL -> setPadInput(Input.HINGE, event.pressed)
-                        KeyEvent.KEYCODE_BUTTON_MODE -> Unit // No game menu yet (see above).
+                        KeyEvent.KEYCODE_BUTTON_MODE -> if (event.pressed) openMenu()
                         else -> Unit
                     }
                 }
@@ -432,15 +584,18 @@ class MelonDSGameActivity : ImmersiveActivity() {
 
     companion object {
         private const val EXTRA_GAME = "GAME"
+        private const val EXTRA_SYSTEM_CORE_CONFIG = "EXTRA_SYSTEM_CORE_CONFIG"
+        private const val MENU_REQUEST = 100
         private const val SCREEN_WIDTH = 256
         private const val SCREEN_HEIGHT = 384
         private const val DS_SCREEN_WIDTH = 256
         private const val DS_SCREEN_HEIGHT = 192
 
-        fun launchGame(activity: Activity, game: Game) {
+        fun launchGame(activity: Activity, game: Game, systemCoreConfig: SystemCoreConfig) {
             activity.startActivityForResult(
                 Intent(activity, MelonDSGameActivity::class.java).apply {
                     putExtra(EXTRA_GAME, game)
+                    putExtra(EXTRA_SYSTEM_CORE_CONFIG, systemCoreConfig)
                 },
                 BaseGameActivity.REQUEST_PLAY_GAME,
             )

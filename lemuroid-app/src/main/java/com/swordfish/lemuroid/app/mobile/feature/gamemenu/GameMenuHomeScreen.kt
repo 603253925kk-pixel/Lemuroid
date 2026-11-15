@@ -63,7 +63,11 @@ fun GameMenuHomeScreen(
                         contentDescription = stringResource(id = R.string.game_menu_save),
                     )
                 },
-                onClick = { navController.navigateToRoute(GameMenuRoute.SAVE) },
+                onClick = {
+                    navController.navigateToRoute(
+                        if (gameMenuRequest.engineStates) GameMenuRoute.ENGINE_SAVE else GameMenuRoute.SAVE,
+                    )
+                },
             )
 
             LemuroidSettingsMenuLink(
@@ -74,7 +78,11 @@ fun GameMenuHomeScreen(
                         contentDescription = stringResource(id = R.string.game_menu_load),
                     )
                 },
-                onClick = { navController.navigateToRoute(GameMenuRoute.LOAD) },
+                onClick = {
+                    navController.navigateToRoute(
+                        if (gameMenuRequest.engineStates) GameMenuRoute.ENGINE_LOAD else GameMenuRoute.LOAD,
+                    )
+                },
             )
         }
 
@@ -104,19 +112,23 @@ fun GameMenuHomeScreen(
             },
         )
 
-        LemuroidSettingsSwitch(
-            title = { Text(text = stringResource(id = R.string.game_menu_mute_audio)) },
-            icon = {
-                Icon(
-                    painterResource(R.drawable.ic_menu_mute),
-                    contentDescription = stringResource(id = R.string.game_menu_mute_audio),
-                )
-            },
-            state = rememberMemoryBooleanSettingState(!gameMenuRequest.audioEnabled),
-            onCheckedChange = {
-                onResult { putExtra(GameMenuContract.RESULT_ENABLE_AUDIO, !it) }
-            },
-        )
+        // The vendored engine exposes no runtime audio toggle: the mute
+        // switch is hidden for it rather than shown dead.
+        if (gameMenuRequest.audioToggleSupported) {
+            LemuroidSettingsSwitch(
+                title = { Text(text = stringResource(id = R.string.game_menu_mute_audio)) },
+                icon = {
+                    Icon(
+                        painterResource(R.drawable.ic_menu_mute),
+                        contentDescription = stringResource(id = R.string.game_menu_mute_audio),
+                    )
+                },
+                state = rememberMemoryBooleanSettingState(!gameMenuRequest.audioEnabled),
+                onCheckedChange = {
+                    onResult { putExtra(GameMenuContract.RESULT_ENABLE_AUDIO, !it) }
+                },
+            )
+        }
 
         if (gameMenuRequest.fastForwardSupported) {
             LemuroidSettingsSwitch(
@@ -152,18 +164,24 @@ fun GameMenuHomeScreen(
             )
         }
 
-        LemuroidSettingsMenuLink(
-            title = { Text(text = stringResource(id = R.string.game_menu_edit_touch_controls)) },
-            icon = {
-                Icon(
-                    painterResource(R.drawable.ic_menu_controls),
-                    contentDescription = stringResource(id = R.string.game_menu_edit_touch_controls),
-                )
-            },
-            onClick = {
-                onResult { putExtra(GameMenuContract.RESULT_EDIT_TOUCH_CONTROLS, true) }
-            },
-        )
+        // The in-game touch-controls editor belongs to the libretro screen;
+        // the new-engine path has no equivalent yet, so the entry is hidden
+        // for it rather than shown dead. The pads still read the same saved
+        // MELONDS touch settings as the libretro path.
+        if (gameMenuRequest.editTouchControlsSupported) {
+            LemuroidSettingsMenuLink(
+                title = { Text(text = stringResource(id = R.string.game_menu_edit_touch_controls)) },
+                icon = {
+                    Icon(
+                        painterResource(R.drawable.ic_menu_controls),
+                        contentDescription = stringResource(id = R.string.game_menu_edit_touch_controls),
+                    )
+                },
+                onClick = {
+                    onResult { putExtra(GameMenuContract.RESULT_EDIT_TOUCH_CONTROLS, true) }
+                },
+            )
+        }
 
         if (gameMenuRequest.advancedCoreOptions.isNotEmpty() || gameMenuRequest.coreOptions.isNotEmpty()) {
             LemuroidSettingsMenuLink(

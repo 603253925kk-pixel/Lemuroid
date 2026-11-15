@@ -39,6 +39,16 @@ enum class GameMenuRoute(
         titleId = R.string.game_menu_load,
         parent = HOME,
     ),
+    ENGINE_SAVE(
+        route = "engine_save",
+        titleId = R.string.game_menu_save,
+        parent = HOME,
+    ),
+    ENGINE_LOAD(
+        route = "engine_load",
+        titleId = R.string.game_menu_load,
+        parent = HOME,
+    ),
     OPTIONS(
         route = "options",
         titleId = R.string.game_menu_settings,

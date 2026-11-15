@@ -33,6 +33,7 @@ import com.swordfish.lemuroid.app.mobile.feature.shortcuts.ShortcutsGenerator
 import com.swordfish.lemuroid.app.shared.game.ExternalGameLauncherActivity
 import com.swordfish.lemuroid.app.shared.game.GameLauncher
 import com.swordfish.lemuroid.app.shared.game.melonds.MelonDSGameActivity
+import com.swordfish.lemuroid.app.shared.game.melonds.MelonDSStatesManager
 import com.swordfish.lemuroid.app.shared.input.InputDeviceManager
 import com.swordfish.lemuroid.app.shared.main.GameLaunchTaskHandler
 import com.swordfish.lemuroid.app.shared.rumble.RumbleManager
@@ -246,6 +247,11 @@ abstract class LemuroidApplicationModule {
         @PerApp
         @JvmStatic
         fun statesManager(directoriesManager: DirectoriesManager) = StatesManager(directoriesManager)
+
+        @Provides
+        @PerApp
+        @JvmStatic
+        fun melonDSStatesManager(directoriesManager: DirectoriesManager) = MelonDSStatesManager(directoriesManager)
 
         @Provides
         @PerApp
