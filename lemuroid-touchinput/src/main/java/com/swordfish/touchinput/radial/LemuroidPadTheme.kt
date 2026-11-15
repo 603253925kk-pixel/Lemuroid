@@ -15,6 +15,27 @@ class LemuroidPadTheme(
      * the default look.
      */
     level1FillOverride: Color? = null,
+    /**
+     * Optional replacements for the key face fill (level3) and the
+     * letter/icon tint, used by the melonDS shell's per-game shell themes
+     * (DS Lite look: light glossy keys with dark letters on the pale
+     * shells, dark keys with light letters on the midnight shell). Null
+     * keeps the stock light keys / dark letters. Pressed states are
+     * untouched (dark fill + light icons), so a pressed key still reads
+     * as pressed on every theme.
+     */
+    level3FillOverride: Color? = null,
+    iconsOverride: Color? = null,
+    /**
+     * Optional per-letter colors for the face buttons, keyed by the
+     * button's label ("A", "B", "X", "Y"). SNES / New 3DS style: X blue,
+     * Y green, A red, B yellow. The melonDS shell passes
+     * [ShellColorTheme.ABXY_LETTER_COLORS]; null keeps the single
+     * [icons] tint for every letter (every other consumer). A mapped
+     * letter keeps its color pressed too — the colors are the buttons'
+     * identity, and they stay readable on the dark pressed fill.
+     */
+    faceButtonLetterColors: Map<String, Color>? = null,
 ) {
     private fun gray(
         luminosity: Float,
@@ -26,10 +47,14 @@ class LemuroidPadTheme(
     val foregroundPadding: Dp = 8.dp
     val padding: Dp = 4.dp
 
-    private val icons = gray(0.0f, 0.50f)
+    private val icons = iconsOverride ?: gray(0.0f, 0.50f)
     private val iconsPressed = gray(1.0f, 0.50f)
 
-    private val level3Fill = gray(1.0f, 0.50f)
+    // Constructor params are not properties, so the letter map is stored
+    // here for letterColor() (member functions cannot see plain params).
+    private val letterColors = faceButtonLetterColors
+
+    private val level3Fill = level3FillOverride ?: gray(1.0f, 0.50f)
     private val level3FillPressed = gray(0.0f, 0.50f)
     val level3Shadow = DefaultShadowColor.copy(0.05f)
     val level3ShadowWidth = 4.dp
@@ -70,6 +95,15 @@ class LemuroidPadTheme(
         } else {
             icons
         }
+    }
+
+    /**
+     * Letter color for a face button: the mapped SNES-style color when
+     * the label is in [faceButtonLetterColors], else the plain [icons]
+     * tint. A null label is never a face button.
+     */
+    fun letterColor(label: String?, pressed: Boolean): Color {
+        return label?.let { letterColors?.get(it) } ?: icons(pressed)
     }
 }
 

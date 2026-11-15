@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -113,6 +114,24 @@ fun GlassSurface(
 
                     drawRoundRect(
                         color = fillColor,
+                        topLeft = Offset(0f, 0f),
+                        size = expandedSize,
+                        cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                    )
+
+                    // Soft top sheen, so keys read as glossy plastic (DS
+                    // Lite) rather than flat paint: a faint white falloff
+                    // over the top half, clipped to the same rounded shape.
+                    // Deliberately subtle — the fill color still defines
+                    // the key, and the sheen fades out before mid-height
+                    // so pressed/dark fills keep their depth.
+                    drawRoundRect(
+                        brush =
+                            Brush.verticalGradient(
+                                0.0f to Color.White.copy(alpha = 0.10f),
+                                0.45f to Color.White.copy(alpha = 0.0f),
+                                1.0f to Color.White.copy(alpha = 0.0f),
+                            ),
                         topLeft = Offset(0f, 0f),
                         size = expandedSize,
                         cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),

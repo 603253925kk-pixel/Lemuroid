@@ -32,7 +32,29 @@ object GameScreenLayout {
     // this covers only ~3 game pixels on either side of the seam, so the
     // bottom text line of the top screen stays fully readable. The previous
     // 24dp band ate ~8 game pixels per side and cut that line in half.
+    //
+    // NOTE: this is the libretro path's overlay band. The melonDS path
+    // does not use it anymore: it renders two genuinely separate windows
+    // with a real gap between them (see DUAL_SCREEN_HINGE_GAP below), so
+    // no game pixel is ever covered.
     val HINGE_BAND_HEIGHT = 10.dp
+
+    // Real hinge gap between the two DS screen windows on the melonDS
+    // path (see computePortraitDualScreenGeometry): the two 4:3 windows
+    // are separated by this much body, with the hinge barrel drawn in
+    // the middle of it. ~10% of one screen's height — the reference
+    // DS Lite shell reads as two separate screens, not one long screen
+    // with a line drawn across it. The gap is never mapped to texture
+    // content: each window shows its full 256x192, and the gap shows
+    // only body. The barrel capsule drawn in the gap is 12dp, leaving
+    // 8dp of black (the screens' own bezels) above and below it.
+    val DUAL_SCREEN_HINGE_GAP = 28.dp
+
+    // Height of the Nintendo logo strip above the top screen window on
+    // the melonDS path (a raised body band carrying the Nintendo oval
+    // and the power/charging LEDs, like the reference shell). Folded
+    // into the dual-screen geometry's top margin.
+    val DUAL_SCREEN_LOGO_STRIP_HEIGHT = 12.dp
 
     // Side and top margins of the portrait screen block inside the body.
     val SCREEN_SIDE_MARGIN = 18.dp
@@ -100,6 +122,70 @@ object GameScreenLayout {
             cutoutTop = cutoutTop,
             sideMargin = SCREEN_SIDE_MARGIN,
             topMargin = SCREEN_TOP_MARGIN,
+        )
+    }
+
+    /**
+     * Size of the melonDS path's two-window portrait layout, computed by
+     * [computePortraitDualScreenGeometry]. Unlike [PortraitScreenGeometry]
+     * (one 2:3 block for the stacked DS frame), this is two genuinely
+     * separate 4:3 windows: [windowHeight] is one screen's height,
+     * [hingeGap] the real body gap between them, and [contentHeight] is
+     * the whole viewport (2 x windowHeight + hingeGap) that the surface
+     * and the frame box are sized to. Each window shows its full 256x192
+     * — no cropping, no squashing — and the gap is never mapped to
+     * texture content (the renderer leaves it undrawn; the shell's
+     * hinge barrel covers it). [topMargin] already includes the Nintendo
+     * logo strip above the top window.
+     */
+    data class DualScreenGeometry(
+        val contentWidth: Dp,
+        val windowHeight: Dp,
+        val hingeGap: Dp,
+        val contentHeight: Dp,
+        val cutoutTop: Dp,
+        val sideMargin: Dp,
+        val topMargin: Dp,
+    )
+
+    /**
+     * Computes the melonDS path's two-window portrait layout from the
+     * available display size. The windows are sized from the width (each
+     * DS screen is 4:3, both equal) and capped so the control deck below
+     * keeps at least [deckReserve] of height; the hinge gap is fixed —
+     * when the display is short the windows shrink proportionally, the
+     * gap never eats screen content. Returns null when the display is
+     * too small to bother. The libretro path keeps using
+     * [computePortraitScreenGeometry] (one 2:3 block) and is untouched.
+     */
+    fun computePortraitDualScreenGeometry(
+        maxWidth: Dp,
+        maxHeight: Dp,
+        cutoutTop: Dp,
+        deckReserve: Dp,
+    ): DualScreenGeometry? {
+        val topMargin = SCREEN_TOP_MARGIN + DUAL_SCREEN_LOGO_STRIP_HEIGHT
+        var contentWidth = maxWidth - SCREEN_SIDE_MARGIN * 2
+        var windowHeight = contentWidth * 3 / 4
+        var contentHeight = windowHeight * 2 + DUAL_SCREEN_HINGE_GAP
+
+        val maxContentHeight = maxHeight - topMargin - cutoutTop - deckReserve
+        if (contentHeight > maxContentHeight) {
+            contentHeight = maxContentHeight
+            windowHeight = (contentHeight - DUAL_SCREEN_HINGE_GAP) / 2
+            contentWidth = windowHeight * 4 / 3
+        }
+
+        if (contentWidth <= 0.dp || contentHeight <= 0.dp || windowHeight <= 0.dp) return null
+
+        return DualScreenGeometry(
+            contentWidth = contentWidth,
+            windowHeight = windowHeight,
+            hingeGap = DUAL_SCREEN_HINGE_GAP,
+            contentHeight = contentHeight,
+            cutoutTop = cutoutTop,
+            sideMargin = SCREEN_SIDE_MARGIN,
+            topMargin = topMargin,
         )
     }
 

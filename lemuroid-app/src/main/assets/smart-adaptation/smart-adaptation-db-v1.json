@@ -7,7 +7,8 @@
     "settings": {
       "internalResolution": 3,
       "jit": true,
-      "frameskip": "auto"
+      "frameskip": "auto",
+      "fit": "fill"
     }
   },
   {
@@ -235,6 +236,7 @@
     "title": "Metroid Prime - Hunters (USA, Australia)",
     "crc32": "7FE4554A",
     "md5": "b4c8a9398866b49c7be17d75736a223b",
+    "shell": "midnight",
     "settings": {
       "internalResolution": 2,
       "jit": true,

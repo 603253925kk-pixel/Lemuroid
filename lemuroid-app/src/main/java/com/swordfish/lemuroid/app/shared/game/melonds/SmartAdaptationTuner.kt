@@ -3,7 +3,40 @@ package com.swordfish.lemuroid.app.shared.game.melonds
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import com.swordfish.lemuroid.app.mobile.feature.game.ShellColorTheme
 import timber.log.Timber
+
+/**
+ * How a game's picture fits its system's screen (smart adaptation
+ * resolves it per game at launch).
+ *
+ * The approach follows the long-standing emulator convention — RetroArch's
+ * aspect-ratio modes ("Core Provided" keeps the core's aspect, "Full"
+ * stretches to the window) and melonDS-Android's own screen-layout
+ * choices — reimplemented here as original code: the renderer maps the
+ * core frame onto the shell window by quad geometry (FIT = uniform scale,
+ * FILL = independent x/y scales), and the bottom-screen touch transform
+ * normalizes through the same rects, so touch stays aligned.
+ *
+ * Per-system principle: the fit is resolved carrying the game's system.
+ * This enum and its resolution live on the NDS dual-screen path only
+ * (NDS games → NDS resolver + NDS seed DB); GBA's libretro single screen
+ * is already fitted to the 3:2 GBA screen and never touches it, and a
+ * future Switch path must resolve its own 16:9 fit. Never cross-apply
+ * one system's layout to another's games.
+ */
+enum class ScreenFitMode(val id: String) {
+    /** Keep the core frame's aspect; black bars where the window differs. */
+    FIT("fit"),
+
+    /** Stretch the frame to the whole screen window; may distort slightly. */
+    FILL("fill");
+
+    companion object {
+        fun fromId(id: String?): ScreenFitMode =
+            entries.firstOrNull { it.id == id?.lowercase() } ?: FIT
+    }
+}
 
 /**
  * Smart adaptation runtime (slice 6): per-game starting settings plus a
@@ -14,7 +47,10 @@ import timber.log.Timber
  *    that game's starting resolution/JIT (IPKE = 3x, everything else
  *    2x in the v1 seeds), and a previously learned stable resolution
  *    for the same game overrides the start level. Unknown games start
- *    at the 3x default.
+ *    at the 3x default. The same lookup also resolves the game's
+ *    screen fit mode (seed "fit", else FIT) and its shell color theme
+ *    (seed "shell" override, else title keywords, else silver) — see
+ *    [SmartAdaptation.resolveShellTheme].
  * 2. While playing, the tuner watches the renderer's *presented* FPS
  *    (frames actually shown, not the engine's produced-frame counter —
  *    the #48 test proved the engine counter reads 60 during visible
@@ -43,6 +79,32 @@ data class AdaptationSettings(
     val targetResolution: Int,
     /** JIT on/off at launch (engine setting, cannot change at runtime). */
     val useJit: Boolean,
+    /**
+     * Fingerprint-database title for the launch toast, if the game is
+     * known (No-Intro title, e.g. "Pokemon - HeartGold Version (USA,
+     * Australia)" — the database holds no Chinese names, so the toast
+     * shortens this to the part before the region parenthesis). Null for
+     * an unknown game; the toast then falls back to the game code.
+     */
+    val gameTitle: String? = null,
+    /**
+     * Learned stable resolution that actually lowered this launch's start
+     * level (non-null only when a stored learned profile exists and is
+     * below the target, so start == learned). Null when no profile
+     * exists, or when the learned level equals the target (nothing was
+     * lowered). The launch toast names it when present.
+     */
+    val learnedResolution: Int? = null,
+    /**
+     * How this game's picture fits the shell's screen (seed override,
+     * else FIT). Carried with the game's system — NDS only here.
+     */
+    val fitMode: ScreenFitMode = ScreenFitMode.FIT,
+    /**
+     * Shell color theme for this game (seed override, else title
+     * keywords, else classic silver). Colors only — no layout change.
+     */
+    val shellTheme: ShellColorTheme = ShellColorTheme.SILVER,
 )
 
 object SmartAdaptation {
@@ -52,27 +114,82 @@ object SmartAdaptation {
     /**
      * Resolves the starting settings for a game. Pure lookup — call it
      * from the launch IO thread (it loads the asset databases on first use).
+     *
+     * [userTargetOverride] is the Settings "NDS 目标分辨率" choice (null
+     * = 自动）: when set, it replaces the seed database's target for this
+     * game; the learned profile still caps the start level at
+     * min(learned, target).
      */
     fun resolveInitial(
         context: Context,
         prefs: SharedPreferences,
         gameCode: String?,
+        userTargetOverride: Int? = null,
     ): AdaptationSettings {
         val seed = gameCode?.let { SmartAdaptationDatabase.seedFor(context, it) }
         val targetResolution =
-            (seed?.settings?.internalResolution ?: DEFAULT_RESOLUTION).coerceIn(1, 3)
+            (userTargetOverride ?: seed?.settings?.internalResolution ?: DEFAULT_RESOLUTION)
+                .coerceIn(1, 3)
         val useJit = seed?.settings?.jit ?: DEFAULT_USE_JIT
         val learned =
             gameCode?.let { SmartAdaptationStore.learnedResolution(prefs, it) }?.coerceIn(1, 3)
         val startResolution = minOf(learned ?: targetResolution, targetResolution)
+        val learnedApplied =
+            if (learned != null && learned < targetResolution) learned else null
+        val gameTitle =
+            gameCode?.let { SmartAdaptationDatabase.fingerprintFor(context, it)?.title }
+                ?.takeIf { it.isNotBlank() }
+        val fitMode =
+            seed?.settings?.fit?.let { ScreenFitMode.fromId(it) } ?: ScreenFitMode.FIT
+        val shellTheme = resolveShellTheme(seed, gameTitle)
         if (gameCode != null) {
-            val title = SmartAdaptationDatabase.fingerprintFor(context, gameCode)?.title ?: "unknown game"
+            val title = gameTitle ?: "unknown game"
             Timber.i(
                 "Smart adaptation: $gameCode ($title) start=${startResolution}x " +
-                    "target=${targetResolution}x jit=$useJit learned=$learned",
+                    "target=${targetResolution}x jit=$useJit learned=$learned " +
+                    "fit=${fitMode.id} shell=${shellTheme.id}",
             )
         }
-        return AdaptationSettings(startResolution, targetResolution, useJit)
+        return AdaptationSettings(
+            startResolution,
+            targetResolution,
+            useJit,
+            gameTitle,
+            learnedApplied,
+            fitMode,
+            shellTheme,
+        )
+    }
+
+    /**
+     * Resolves the shell color theme for a game. Priority: the seed
+     * database's per-game override ("shell"), then the fingerprint
+     * title's keywords, else classic silver.
+     *
+     * The themes render Nintendo's real hardware colors (DS Lite Polar
+     * White, DSi Matte Black, DS Lite Cobalt/Black and Crimson/Black —
+     * see [ShellColorTheme]); the keyword mapping only picks which real
+     * color a game gets, it never invents a color. An unknown seed id
+     * falls through to the keyword rule instead of forcing silver.
+     */
+    fun resolveShellTheme(
+        seed: SmartAdaptationSeedGame?,
+        gameTitle: String?,
+    ): ShellColorTheme {
+        seed?.shell?.lowercase()?.let { id ->
+            if (ShellColorTheme.entries.any { it.id == id }) {
+                return ShellColorTheme.fromId(id)
+            }
+        }
+        val title = gameTitle?.lowercase() ?: return ShellColorTheme.SILVER
+        return when {
+            "pokemon" in title || "宝可梦" in title -> ShellColorTheme.PEARL
+            "mario" in title || "马里奥" in title -> ShellColorTheme.CHERRY
+            "zelda" in title || "塞尔达" in title -> ShellColorTheme.OCEAN
+            "kirby" in title || "星之卡比" in title -> ShellColorTheme.CHERRY
+            "animal crossing" in title || "动物之森" in title -> ShellColorTheme.PEARL
+            else -> ShellColorTheme.SILVER
+        }
     }
 }
 

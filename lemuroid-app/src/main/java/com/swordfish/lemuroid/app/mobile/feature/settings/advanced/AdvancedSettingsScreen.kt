@@ -120,6 +120,32 @@ private fun GeneralSettings(
             title = { Text(text = stringResource(id = R.string.settings_title_melonds_software_renderer)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_melonds_software_renderer)) },
         )
+        LemuroidSettingsSwitch(
+            state = booleanPreferenceState(R.string.pref_key_melonds_smart_adaptation, true),
+            title = { Text(text = stringResource(id = R.string.settings_title_melonds_smart_adaptation)) },
+            subtitle = { Text(text = stringResource(id = R.string.settings_description_melonds_smart_adaptation)) },
+        )
+        LemuroidSettingsList(
+            title = { Text(text = stringResource(R.string.settings_title_melonds_resolution_target)) },
+            subtitle = { Text(text = stringResource(R.string.settings_description_melonds_resolution_target)) },
+            items = listOf("自动", "1x", "2x", "3x"),
+            state =
+                indexPreferenceState(
+                    R.string.pref_key_melonds_resolution_target,
+                    "auto",
+                    listOf("auto", "1", "2", "3"),
+                ),
+        )
+        LemuroidSettingsSwitch(
+            state = booleanPreferenceState(R.string.pref_key_melonds_smoothing_filter, true),
+            title = { Text(text = stringResource(id = R.string.settings_title_melonds_smoothing_filter)) },
+            subtitle = { Text(text = stringResource(id = R.string.settings_description_melonds_smoothing_filter)) },
+        )
+        LemuroidSettingsSwitch(
+            state = booleanPreferenceState(R.string.pref_key_melonds_show_fps, true),
+            title = { Text(text = stringResource(id = R.string.settings_title_melonds_show_fps)) },
+            subtitle = { Text(text = stringResource(id = R.string.settings_description_melonds_show_fps)) },
+        )
         LemuroidSettingsMenuLink(
             title = { Text(text = stringResource(id = R.string.settings_title_reset_settings)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_reset_settings)) },

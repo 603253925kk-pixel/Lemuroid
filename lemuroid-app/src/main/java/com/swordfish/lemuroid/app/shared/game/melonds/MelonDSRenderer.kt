@@ -18,9 +18,13 @@ import javax.microedition.khronos.opengles.GL10
  * 256x192 screens stacked, with a 2px separator line) and reports every frame
  * through the emulator's frame-rendered listener as a (GL fence sync, texture
  * id) pair. This renderer keeps only the newest event, waits on its fence and
- * draws the texture as two quads — a stripped-down version of upstream's
- * DSRenderer without backgrounds or user layouts: the stacked screens are
- * fitted into the surface preserving aspect, centered.
+ * draws the texture as two quads — one per DS screen — a stripped-down
+ * version of upstream's DSRenderer without backgrounds or user layouts:
+ * the top 256x192 maps onto the top 4:3 window, the bottom 256x192 onto
+ * the bottom 4:3 window, with a real hinge gap between them that is never
+ * mapped to texture content, so each screen shows every pixel. [fitMode]
+ * decides how each half fits its window (aspect-preserving FIT by
+ * default, or FILL to stretch to the window).
  *
  * UV split follows upstream exactly: with the texture vertically flipped, the
  * top screen occupies v in [0, 0.5 - line] and the bottom screen v in
@@ -63,6 +67,7 @@ class MelonDSRenderer(
     private var uniformTex = -1
     private var uniformSwap = -1
     private var uniformTexelSize = -1
+    private var uniformSmooth = -1
 
     /**
      * Effective compositor scale for the frame texture: 3 on the OpenGL path,
@@ -72,6 +77,47 @@ class MelonDSRenderer(
      */
     @Volatile
     var internalResolutionScale: Int = 3
+
+    /**
+     * Whether the presentation smoothing filter runs (Settings → Advanced
+     * → "NDS 平滑滤镜", default on). Read every frame from the uniform, so
+     * flipping it takes effect on the next presented frame with no
+     * recompile; the activity reads the preference once at session start,
+     * so a change applies on the next game launch.
+     */
+    @Volatile
+    var smoothingFilterEnabled: Boolean = true
+
+    /**
+     * How the game picture fits the shell's dual-screen window (smart
+     * adaptation resolves it per game at launch; see [ScreenFitMode]).
+     *
+     * FIT keeps the core frame's aspect (no distortion; black bars where
+     * the window's 2:3 aspect does not match the 256x384 frame). FILL
+     * stretches the frame to the whole window (may distort slightly).
+     * Changing it recomputes the screen rects from the last known surface
+     * size, so the next presented frame uses the new mapping — no restart
+     * needed. The bottom-screen touch transform follows automatically:
+     * touch coordinates are normalized through [bottomScreenRect], which
+     * is derived from the same rects.
+     *
+     * Per-system note: this is the NDS dual-screen fit. Other systems fit
+     * their own screens (GBA's libretro single screen is already fitted to
+     * the 3:2 GBA screen and never touches this; a future Switch path
+     * resolves its own 16:9 fit) — never cross-apply one system's layout
+     * to another's games.
+     */
+    @Volatile
+    var fitMode: ScreenFitMode = ScreenFitMode.FIT
+        set(value) {
+            field = value
+            if (lastSurfaceWidth > 0 && lastSurfaceHeight > 0) {
+                updateScreenCoordinates(lastSurfaceWidth, lastSurfaceHeight)
+            }
+        }
+
+    private var lastSurfaceWidth = 0
+    private var lastSurfaceHeight = 0
 
     /**
      * Whether the frame texture's red and blue channels must be swapped back.
@@ -125,6 +171,7 @@ class MelonDSRenderer(
         uniformTex = GLES30.glGetUniformLocation(program, "uTex")
         uniformSwap = GLES30.glGetUniformLocation(program, "uSwap")
         uniformTexelSize = GLES30.glGetUniformLocation(program, "uTexelSize")
+        uniformSmooth = GLES30.glGetUniformLocation(program, "uSmooth")
         onGlContextReady(EGL14.eglGetCurrentContext().nativeHandle)
     }
 
@@ -158,6 +205,7 @@ class MelonDSRenderer(
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glUniform1i(uniformTex, 0)
         GLES30.glUniform1i(uniformSwap, if (swapRedBlue) 1 else 0)
+        GLES30.glUniform1i(uniformSmooth, if (smoothingFilterEnabled) 1 else 0)
         GLES30.glUniform2f(
             uniformTexelSize,
             1f / (SCREEN_WIDTH * internalResolutionScale),
@@ -186,15 +234,63 @@ class MelonDSRenderer(
     }
 
     private fun updateScreenCoordinates(surfaceWidth: Int, surfaceHeight: Int) {
-        val scale = minOf(surfaceWidth / SCREEN_WIDTH.toFloat(), surfaceHeight / SCREEN_HEIGHT.toFloat())
-        val contentWidth = SCREEN_WIDTH * scale
-        val contentHeight = SCREEN_HEIGHT * scale
-        val originX = (surfaceWidth - contentWidth) / 2f
-        val originY = (surfaceHeight - contentHeight) / 2f
-        val screenHeightPx = contentHeight / 2f
+        lastSurfaceWidth = surfaceWidth
+        lastSurfaceHeight = surfaceHeight
+        // Two genuinely separate windows, one per DS screen — not one
+        // 256x384 block with a line drawn across it. The surface is
+        // sized by the shell geometry as (windowWidth x (2 x windowHeight
+        // + hingeGap)), each window exactly 4:3; the top 256x192 of the
+        // core texture maps onto the top window, the bottom 256x192 onto
+        // the bottom window, and the hinge gap between them is left
+        // undrawn (the surface's clear color — black — shows there, and
+        // the shell's opaque hinge barrel covers the middle of it).
+        //
+        // Hard rule: no pixel is ever lost. Each window shows its full
+        // 256x192 — the gap is never mapped to texture content, so
+        // nothing is cropped, squashed or stretched to hide under a
+        // cover (the old overlay band ate ~3 game pixels per side of the
+        // seam; a "stretch the whole block, then cover the gap" mapping
+        // would hide whole rows the same way). [ScreenFitMode] applies
+        // per window: FIT keeps the 4:3 aspect (bars inside a window
+        // when the surface is wider than the window); FILL stretches to
+        // the window. On NDS the windows are 4:3 and the texture halves
+        // are 4:3, so FIT and FILL coincide here — the framework's value
+        // is the per-system structure + the seed mechanism, not a visible
+        // difference on this system.
+        //
+        // The UV split is unchanged — the whole texture is still sampled
+        // (top v in [0, 0.5 - line], bottom v in [0.5 + line, 1], the
+        // 2 separator rows skipped) — only the quad geometry changes,
+        // and bottomScreenRect (which the touch transform normalizes
+        // through) is derived from the same rects, so touch stays aligned.
+        val windowHeight = surfaceWidth * 3f / 4f
+        var hingeGapPx = surfaceHeight - windowHeight * 2f
+        var windowHeightPx = windowHeight
+        if (hingeGapPx < 0f) {
+            // Defensive: the geometry guarantees a real gap, but a
+            // degenerate surface must not invert the windows — fall back
+            // to two adjacent windows with no gap rather than crashing.
+            hingeGapPx = 0f
+            windowHeightPx = surfaceHeight / 2f
+        }
+        val (quadWidth, quadHeight) =
+            when (fitMode) {
+                ScreenFitMode.FIT -> {
+                    val scale =
+                        minOf(
+                            surfaceWidth / SCREEN_WIDTH.toFloat(),
+                            windowHeightPx / (SCREEN_HEIGHT / 2).toFloat(),
+                        )
+                    SCREEN_WIDTH * scale to (SCREEN_HEIGHT / 2) * scale
+                }
+                ScreenFitMode.FILL -> surfaceWidth.toFloat() to windowHeightPx
+            }
+        val originX = (surfaceWidth - quadWidth) / 2f
+        val topOriginY = (windowHeightPx - quadHeight) / 2f
+        val bottomOriginY = windowHeightPx + hingeGapPx + (windowHeightPx - quadHeight) / 2f
 
-        val topRect = RectF(originX, originY, originX + contentWidth, originY + screenHeightPx)
-        val bottomRect = RectF(originX, originY + screenHeightPx, originX + contentWidth, originY + contentHeight)
+        val topRect = RectF(originX, topOriginY, originX + quadWidth, topOriginY + quadHeight)
+        val bottomRect = RectF(originX, bottomOriginY, originX + quadWidth, bottomOriginY + quadHeight)
         bottomScreenRect =
             Rect(
                 bottomRect.left.toInt(),
@@ -290,12 +386,13 @@ class MelonDSRenderer(
                 "precision mediump float;\n" +
                 "uniform sampler2D uTex;\n" +
                 "uniform int uSwap;\n" +
+                "uniform int uSmooth;\n" +
                 "uniform vec2 uTexelSize;\n" +
                 "in vec2 vUv;\n" +
                 "out vec4 oColor;\n" +
                 "void main() {\n" +
                 "    vec4 c = texture(uTex, vUv);\n" +
-                "    if (vUv.y < 0.5) {\n" +
+                "    if (uSmooth == 1 && vUv.y < 0.5) {\n" +
                 "        float dy = uTexelSize.y;\n" +
                 "        vec4 cUp1 = texture(uTex, vUv + vec2(0.0, dy));\n" +
                 "        vec4 cDn1 = texture(uTex, vUv - vec2(0.0, dy));\n" +

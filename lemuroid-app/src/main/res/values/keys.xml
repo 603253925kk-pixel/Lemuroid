@@ -21,6 +21,10 @@
     <string name="pref_key_allow_direct_game_load" translatable="false">allow_direct_game_load</string>
     <string name="pref_key_melonds_engine" translatable="false">melonds_engine</string>
     <string name="pref_key_melonds_software_renderer" translatable="false">melonds_software_renderer</string>
+    <string name="pref_key_melonds_smart_adaptation" translatable="false">melonds_smart_adaptation</string>
+    <string name="pref_key_melonds_resolution_target" translatable="false">melonds_resolution_target</string>
+    <string name="pref_key_melonds_smoothing_filter" translatable="false">melonds_smoothing_filter</string>
+    <string name="pref_key_melonds_show_fps" translatable="false">melonds_show_fps</string>
     <string name="pref_key_enable_immersive_mode" translatable="false">enable_immersive_mode</string>
 
     <string name="pref_key_save_sync_auto" translatable="false">save_sync_auto</string>

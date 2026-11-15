@@ -23,7 +23,13 @@ fun LemuroidControlButton(
     ControlButton(
         modifier = modifier.padding(theme.padding),
         id = id,
-        foreground = { LemuroidButtonForeground(pressed = it, icon = icon, label = label) },
+        foreground = {
+            LemuroidButtonForeground(
+                pressed = it,
+                icon = icon,
+                label = label,
+            )
+        },
         background = { LemuroidControlBackground() },
     )
 }

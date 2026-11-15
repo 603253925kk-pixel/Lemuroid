@@ -91,6 +91,14 @@
     <string name="settings_description_melonds_engine">开启时 NDS 游戏使用带 GPU 渲染的新引擎（3D 场景更流畅）；关闭时使用原来的 libretro 核心。两种引擎的存档互通。</string>
     <string name="settings_title_melonds_software_renderer">NDS 新引擎使用软件渲染</string>
     <string name="settings_description_melonds_software_renderer">开启时新引擎改用 CPU 软件渲染（画面颜色最准确，但 3D 场景会慢）；关闭时用 GPU 渲染。若 GPU 渲染下颜色不对（如水面发橙），打开此项对比。</string>
+    <string name="settings_title_melonds_smart_adaptation">NDS 智能适配</string>
+    <string name="settings_description_melonds_smart_adaptation">开启时自动按游戏调分辨率：看实际显示帧数，卡了就降档、流畅就升档，稳住后下次直接用学到的档位；还会按游戏自动换掌机壳配色和画面贴合方式。关闭后固定目标分辨率。</string>
+    <string name="settings_title_melonds_resolution_target">NDS 目标分辨率</string>
+    <string name="settings_description_melonds_resolution_target">智能适配最高能上到的分辨率档位；选「自动」时按游戏种子配置来。实际起始档位可能低于目标（上次学到的更低档位，或目标本身）。</string>
+    <string name="settings_title_melonds_smoothing_filter">NDS 平滑滤镜</string>
+    <string name="settings_description_melonds_smoothing_filter">开启时柔化画面里的细横线（游戏贴图本身的暗边行在高倍渲染下会显出来）。下次进游戏生效。</string>
+    <string name="settings_title_melonds_show_fps">显示帧率</string>
+    <string name="settings_description_melonds_show_fps">在游戏画面下方的状态条里显示实际帧率（显示/引擎）和当前分辨率档位。</string>
 
     <string name="settings_title_enable_rumble">Rumble</string>
     <string name="settings_description_enable_rumble">Enable rumble in supported games and controllers</string>

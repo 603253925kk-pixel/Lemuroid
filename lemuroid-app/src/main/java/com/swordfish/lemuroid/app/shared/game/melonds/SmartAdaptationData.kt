@@ -54,6 +54,14 @@ data class SmartAdaptationSeedSettings(
      * melonDS engine exposes no frameskip control (see the file doc).
      */
     @SerialName("frameskip") val frameskip: String? = null,
+    /**
+     * How the game picture fits the shell's screen ("fit" = keep aspect,
+     * "fill" = stretch to fill). Null = the system default (FIT). Only
+     * set for games that need it — on NDS the difference is ~0.5%
+     * vertically (see MelonDSRenderer), so this is the mechanism, not a
+     * per-game visual overhaul.
+     */
+    @SerialName("fit") val fit: String? = null,
 )
 
 @Serializable
@@ -62,6 +70,12 @@ data class SmartAdaptationSeedGame(
     @SerialName("title") val title: String = "",
     @SerialName("crc32") val crc32: String = "",
     @SerialName("md5") val md5: String = "",
+    /**
+     * Optional shell color theme id for this game (e.g. "midnight") —
+     * the seed override wins over the title-keyword rule in
+     * SmartAdaptation.resolveShellTheme. Null = no override.
+     */
+    @SerialName("shell") val shell: String? = null,
     @SerialName("settings") val settings: SmartAdaptationSeedSettings = SmartAdaptationSeedSettings(),
 )
 

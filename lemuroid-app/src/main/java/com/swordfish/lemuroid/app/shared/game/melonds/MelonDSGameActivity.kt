@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.lifecycleScope
 import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.game.GameService
+import com.swordfish.lemuroid.app.mobile.feature.game.ShellColorTheme
 import com.swordfish.lemuroid.app.mobile.feature.gamemenu.GameMenuActivity
 import com.swordfish.lemuroid.app.shared.GameMenuContract
 import com.swordfish.lemuroid.app.shared.ImmersiveActivity
@@ -83,6 +84,14 @@ class MelonDSGameActivity : ImmersiveActivity() {
     private var baseEmulatorConfig: EmulatorConfiguration? = null
     private var smartAdaptationTuner: SmartAdaptationTuner? = null
 
+    // Smart-adaptation launch state, resolved in onGlContextReady: the
+    // resolution level the FPS line shows (the tuner moves it up/down at
+    // runtime via applyAdaptedResolution), whether the FPS line shows at
+    // all, and the per-game shell theme the shell recomposes with.
+    private var fpsResolutionLevel: Int = SmartAdaptation.DEFAULT_RESOLUTION
+    private var showFps: Boolean = true
+    private val shellThemeState = mutableStateOf(ShellColorTheme.SILVER)
+
     private lateinit var surfaceView: GLSurfaceView
     private lateinit var renderer: MelonDSRenderer
 
@@ -144,6 +153,15 @@ class MelonDSGameActivity : ImmersiveActivity() {
         // OpenGL path and 1 on the software path.
         renderer.internalResolutionScale =
             if (useSoftwareRenderer) 1 else MelonDSEmulatorConfig.INTERNAL_RESOLUTION_SCALING
+        // Settings → Advanced (NDS): the smoothing filter and the FPS
+        // line, read once at session start — changing either applies on
+        // the next game launch.
+        renderer.smoothingFilterEnabled =
+            SharedPreferencesHelper.getSharedPreferences(applicationContext)
+                .getBoolean(getString(R.string.pref_key_melonds_smoothing_filter), true)
+        showFps =
+            SharedPreferencesHelper.getSharedPreferences(applicationContext)
+                .getBoolean(getString(R.string.pref_key_melonds_show_fps), true)
         surfaceView =
             GLSurfaceView(this).apply {
                 setEGLContextClientVersion(3)
@@ -175,6 +193,7 @@ class MelonDSGameActivity : ImmersiveActivity() {
                             MelonEmulator.setFastForwardEnabled(fastForwardState.value)
                         },
                         onPadInputEvent = ::handlePadInputEvent,
+                        shellTheme = shellThemeState.value,
                     )
                 }
             },
@@ -212,13 +231,32 @@ class MelonDSGameActivity : ImmersiveActivity() {
                         // blocks the launch.
                         val gameCode =
                             NdsGameCodeReader.readGameCode(applicationContext, Uri.parse(game.fileUri))
+                        // Settings → Advanced (NDS): the master switch
+                        // gates the tuner; the target list overrides the
+                        // seed target ("auto" = seed behavior). With the
+                        // switch off there is no tuner and the game
+                        // starts at the target level — the learned
+                        // profile is not applied.
+                        val smartAdaptationEnabled =
+                            prefs.getBoolean(getString(R.string.pref_key_melonds_smart_adaptation), true)
+                        val userTargetOverride =
+                            prefs.getString(getString(R.string.pref_key_melonds_resolution_target), "auto")
+                                ?.toIntOrNull()
                         val adaptation =
-                            SmartAdaptation.resolveInitial(applicationContext, prefs, gameCode)
+                            SmartAdaptation.resolveInitial(
+                                applicationContext,
+                                prefs,
+                                gameCode,
+                                userTargetOverride,
+                            )
+                        val startResolution =
+                            if (smartAdaptationEnabled) adaptation.startResolution
+                            else adaptation.targetResolution
                         val emulatorConfig =
                             MelonDSEmulatorConfig.build(
                                 applicationContext,
                                 useSoftwareRenderer = useSoftwareRenderer,
-                                internalResolutionScaling = adaptation.startResolution,
+                                internalResolutionScaling = startResolution,
                                 useJit = adaptation.useJit,
                             )
                         baseEmulatorConfig = emulatorConfig
@@ -227,19 +265,41 @@ class MelonDSGameActivity : ImmersiveActivity() {
                         // game may start at 2x, not the 3x default the
                         // activity set in onCreate).
                         renderer.internalResolutionScale =
-                            if (useSoftwareRenderer) 1 else adaptation.startResolution
+                            if (useSoftwareRenderer) 1 else startResolution
+                        fpsResolutionLevel =
+                            if (useSoftwareRenderer) 1 else startResolution
                         smartAdaptationTuner =
-                            SmartAdaptationTuner(
-                                gameCode = gameCode,
-                                prefs = prefs,
-                                targetResolution = adaptation.targetResolution,
-                                startResolution = adaptation.startResolution,
-                                isSoftwareRenderer = useSoftwareRenderer,
-                                onResolutionChanged = { newLevel -> applyAdaptedResolution(newLevel) },
-                                onFirstAdaptation = { newLevel ->
-                                    displayToast("智能适配已调至 ${newLevel}x", android.widget.Toast.LENGTH_SHORT)
-                                },
+                            if (smartAdaptationEnabled) {
+                                SmartAdaptationTuner(
+                                    gameCode = gameCode,
+                                    prefs = prefs,
+                                    targetResolution = adaptation.targetResolution,
+                                    startResolution = adaptation.startResolution,
+                                    isSoftwareRenderer = useSoftwareRenderer,
+                                    onResolutionChanged = { newLevel -> applyAdaptedResolution(newLevel) },
+                                    onFirstAdaptation = { newLevel ->
+                                        displayToast("智能适配已调至 ${newLevel}x", android.widget.Toast.LENGTH_SHORT)
+                                    },
+                                )
+                            } else {
+                                null
+                            }
+                        // Launch-visible pieces, on the main thread: the
+                        // shell theme (Compose state) and the one-time
+                        // launch toast naming the game's settings, so the
+                        // user can see smart adaptation is working. The
+                        // fit mode is applied here too — the setter
+                        // recomputes the screen rects from the last known
+                        // surface size, and onSurfaceChanged re-applies
+                        // the current mode on every surface change.
+                        withContext(Dispatchers.Main) {
+                            shellThemeState.value = adaptation.shellTheme
+                            renderer.fitMode = adaptation.fitMode
+                            displayToast(
+                                adaptationLaunchToastText(adaptation, gameCode, smartAdaptationEnabled),
+                                android.widget.Toast.LENGTH_LONG,
                             )
+                        }
                         MelonEmulator.setupEmulator(
                             emulatorConfig,
                             assets,
@@ -334,10 +394,46 @@ class MelonDSGameActivity : ImmersiveActivity() {
                     ),
             )
         baseEmulatorConfig = newConfig
+        fpsResolutionLevel = newResolution
         runCatching {
             MelonEmulator.updateEmulatorConfiguration(newConfig)
             renderer.internalResolutionScale = newResolution
         }.onFailure { Timber.e(it, "Smart adaptation: failed to apply ${newResolution}x") }
+    }
+
+    /**
+     * The one-time launch toast naming what smart adaptation resolved
+     * for this game, so the user can see it working (otherwise it is
+     * invisible at 60 FPS — no down-step, no toast — which is correct
+     * behavior but looks like nothing happened).
+     *
+     * The fingerprint database holds No-Intro ENGLISH titles only —
+     * there are no Chinese names in the data — so the toast uses the
+     * title shortened at the region parenthesis
+     * ("Pokemon - HeartGold Version"), not a Chinese name.
+     */
+    private fun adaptationLaunchToastText(
+        adaptation: AdaptationSettings,
+        gameCode: String?,
+        smartAdaptationEnabled: Boolean,
+    ): String {
+        val title =
+            adaptation.gameTitle
+                ?.substringBefore(" (")
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: gameCode
+                ?: "未知游戏"
+        if (!smartAdaptationEnabled) {
+            return "智能适配已关闭：固定 ${adaptation.targetResolution}x"
+        }
+        val learned =
+            adaptation.learnedResolution?.let { " · 已用上次学习的 ${it}x" } ?: ""
+        val fit =
+            if (adaptation.fitMode == ScreenFitMode.FILL) " · 画面拉伸填满" else ""
+        return "智能适配：$title · ${adaptation.startResolution}x" +
+            "（目标 ${adaptation.targetResolution}x）· JIT ${if (adaptation.useJit) "开" else "关"}$learned" +
+            " · 外壳：${adaptation.shellTheme.displayName}$fit"
     }
 
     private fun failAndExit(detail: String? = null) {
@@ -615,8 +711,16 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 // Presented frames first (what the eye actually gets); the
                 // engine counter second, because it counts produced frames
                 // the renderer may have discarded and read 60 during visible
-                // outdoor stutter in the #48 test.
-                fpsTextState.value = "显示 ${renderer.presentedFps} · 引擎 ${MelonEmulator.getFPS()} FPS"
+                // outdoor stutter in the #48 test. The resolution level
+                // rides along so smart adaptation is visible (a down-step
+                // changes the level here); with "显示帧率" off the strip's
+                // FPS slot stays empty.
+                fpsTextState.value =
+                    if (showFps) {
+                        "显示 ${renderer.presentedFps} · 引擎 ${MelonEmulator.getFPS()} FPS · ${fpsResolutionLevel}x"
+                    } else {
+                        ""
+                    }
                 // Smart adaptation (slice 6): one presented-FPS sample per
                 // second. No tuning while paused, in the menu or
                 // fast-forwarding — those samples would fake headroom.

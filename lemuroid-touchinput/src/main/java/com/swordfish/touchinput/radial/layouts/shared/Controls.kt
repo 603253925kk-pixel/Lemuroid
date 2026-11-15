@@ -19,6 +19,8 @@ fun SecondaryButtonSelect(position: Int = 0) {
         modifier = Modifier.radialPosition(120f - 30f * position),
         id = Id.Key(KeyEvent.KEYCODE_BUTTON_SELECT),
         icon = R.drawable.button_select,
+        // Small round key, like the reference DS shell (Start/Select are
+        // small round keys, not pills).
     )
 }
 
@@ -89,6 +91,8 @@ fun SecondaryButtonStart(position: Int = 0) {
         modifier = Modifier.radialPosition(60f + 30f * position),
         id = Id.Key(KeyEvent.KEYCODE_BUTTON_START),
         icon = R.drawable.button_start,
+        // Small round key, like the reference DS shell (Start/Select are
+        // small round keys, not pills).
     )
 }
 
