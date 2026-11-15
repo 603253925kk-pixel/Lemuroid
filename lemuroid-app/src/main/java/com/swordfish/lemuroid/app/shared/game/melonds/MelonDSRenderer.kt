@@ -25,6 +25,32 @@ import javax.microedition.khronos.opengles.GL10
  * UV split follows upstream exactly: with the texture vertically flipped, the
  * top screen occupies v in [0, 0.5 - line] and the bottom screen v in
  * [0.5 + line, 1], where line = 1 / (384 + 1).
+ *
+ * Presentation-side smoothing filter: the black lines the user still sees on
+ * the top (3D) screen are the game's own texture dark edge rows, rendered at
+ * 3x into the compositor output and then shown at ~1:1 — a small vertical
+ * low-pass in the presentation shader spreads each dark row over its
+ * neighbours and drops its contrast ~20-30%. It is a 5-tap vertical blur
+ * (±1 and ±2 texels, weights 0.4/0.2/0.1) applied to the top screen only
+ * (v < 0.5); the bottom screen is 2D UI/text and is left unfiltered so its
+ * text stays crisp. The texel size comes from [internalResolutionScale],
+ * which the activity sets to the effective compositor scale (3 on the
+ * OpenGL path, 1 on the software path — the compositor output is
+ * 256x386 times the scale). Note Android's GLES bindings expose no
+ * glGetTexLevelParameteriv, so the size cannot be queried from the texture
+ * at runtime and must be passed in. The compositor texture is
+ * CLAMP_TO_EDGE, so samples past the outer edges clamp safely, and the
+ * separator rows between the screens are black-filled — the worst case is a
+ * slightly darkened 1-2 rows at the top screen's bottom edge, at the hinge,
+ * where the current GL_LINEAR sampling already blends the same way.
+ *
+ * 3x framebuffer check (done before adding the filter): the compositor
+ * allocates ScreenW = 256*scale, ScreenH = (384+2)*scale, i.e. 768x1158 at
+ * scale 3, with the 2*scale separator rows zero-filled at rows 192*scale —
+ * the Kotlin UV split (line = 1/385) matches that separator exactly, so the
+ * split is scale-invariant and there is no white-screen risk from the 3x
+ * texture path. The one white screen the user saw on #54 was the game still
+ * loading on entry, confirmed by him; 3x stays untouched.
  */
 class MelonDSRenderer(
     private val onGlContextReady: (glContext: Long) -> Unit,
@@ -36,6 +62,16 @@ class MelonDSRenderer(
     private var program = 0
     private var uniformTex = -1
     private var uniformSwap = -1
+    private var uniformTexelSize = -1
+
+    /**
+     * Effective compositor scale for the frame texture: 3 on the OpenGL path,
+     * 1 on the software path (see RendererConfiguration.resolutionScaling).
+     * The activity sets this before the first frame; the presentation filter
+     * derives the texel size from it (texture is 256x386 times the scale).
+     */
+    @Volatile
+    var internalResolutionScale: Int = 3
 
     /**
      * Whether the frame texture's red and blue channels must be swapped back.
@@ -88,6 +124,7 @@ class MelonDSRenderer(
         program = createProgram()
         uniformTex = GLES30.glGetUniformLocation(program, "uTex")
         uniformSwap = GLES30.glGetUniformLocation(program, "uSwap")
+        uniformTexelSize = GLES30.glGetUniformLocation(program, "uTexelSize")
         onGlContextReady(EGL14.eglGetCurrentContext().nativeHandle)
     }
 
@@ -121,6 +158,11 @@ class MelonDSRenderer(
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glUniform1i(uniformTex, 0)
         GLES30.glUniform1i(uniformSwap, if (swapRedBlue) 1 else 0)
+        GLES30.glUniform2f(
+            uniformTexelSize,
+            1f / (SCREEN_WIDTH * internalResolutionScale),
+            1f / ((SCREEN_HEIGHT + SEPARATOR_ROWS) * internalResolutionScale),
+        )
 
         positions.position(0)
         uvs.position(0)
@@ -230,6 +272,9 @@ class MelonDSRenderer(
     companion object {
         private const val SCREEN_WIDTH = 256
         private const val SCREEN_HEIGHT = 384
+
+        /** Black-filled separator rows between the two screens in the texture. */
+        private const val SEPARATOR_ROWS = 2
         private const val ATTRIB_POS = 0
         private const val ATTRIB_UV = 1
 
@@ -245,8 +290,20 @@ class MelonDSRenderer(
                 "precision mediump float;\n" +
                 "uniform sampler2D uTex;\n" +
                 "uniform int uSwap;\n" +
+                "uniform vec2 uTexelSize;\n" +
                 "in vec2 vUv;\n" +
                 "out vec4 oColor;\n" +
-                "void main() { vec4 c = texture(uTex, vUv); oColor = (uSwap == 1) ? c.bgra : c; }\n"
+                "void main() {\n" +
+                "    vec4 c = texture(uTex, vUv);\n" +
+                "    if (vUv.y < 0.5) {\n" +
+                "        float dy = uTexelSize.y;\n" +
+                "        vec4 cUp1 = texture(uTex, vUv + vec2(0.0, dy));\n" +
+                "        vec4 cDn1 = texture(uTex, vUv - vec2(0.0, dy));\n" +
+                "        vec4 cUp2 = texture(uTex, vUv + vec2(0.0, dy * 2.0));\n" +
+                "        vec4 cDn2 = texture(uTex, vUv - vec2(0.0, dy * 2.0));\n" +
+                "        c = c * 0.4 + (cUp1 + cDn1) * 0.2 + (cUp2 + cDn2) * 0.1;\n" +
+                "    }\n" +
+                "    oColor = (uSwap == 1) ? c.bgra : c;\n" +
+                "}\n"
     }
 }

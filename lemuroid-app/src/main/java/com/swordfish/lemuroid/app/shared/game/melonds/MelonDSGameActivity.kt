@@ -119,13 +119,19 @@ class MelonDSGameActivity : ImmersiveActivity() {
         playTimeTracker = MelonDSPlayTimeTracker(game, retrogradeDb, lifecycleScope)
 
         renderer = MelonDSRenderer(onGlContextReady = { glContext -> onGlContextReady(glContext) })
+        val useSoftwareRenderer =
+            SharedPreferencesHelper
+                .getSharedPreferences(applicationContext)
+                .getBoolean(getString(R.string.pref_key_melonds_software_renderer), false)
         // The OpenGL compositor's output texture is BGRA-ordered by design;
         // the software renderer's is plain RGBA. Swap channels back only on
         // the OpenGL path (see MelonDSRenderer.swapRedBlue).
-        renderer.swapRedBlue =
-            !SharedPreferencesHelper
-                .getSharedPreferences(applicationContext)
-                .getBoolean(getString(R.string.pref_key_melonds_software_renderer), false)
+        renderer.swapRedBlue = !useSoftwareRenderer
+        // The presentation filter needs the real texel size: the compositor
+        // output is 256x386 times the effective scale, which is 3 on the
+        // OpenGL path and 1 on the software path.
+        renderer.internalResolutionScale =
+            if (useSoftwareRenderer) 1 else MelonDSEmulatorConfig.INTERNAL_RESOLUTION_SCALING
         surfaceView =
             GLSurfaceView(this).apply {
                 setEGLContextClientVersion(3)

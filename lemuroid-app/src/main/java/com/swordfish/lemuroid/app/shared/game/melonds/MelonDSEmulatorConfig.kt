@@ -33,6 +33,14 @@ import me.magnum.melonds.domain.model.VideoRenderer
  *   internally generated firmware, so the user never has to provide files.
  */
 object MelonDSEmulatorConfig {
+    /**
+     * 3D internal resolution scale on the OpenGL path (the software path
+     * always renders at 1x — see RendererConfiguration.resolutionScaling).
+     * The presentation filter in MelonDSRenderer derives its texel size
+     * from this via the activity, so keep the single source of truth here.
+     */
+    const val INTERNAL_RESOLUTION_SCALING = 3
+
     fun build(
         context: Context,
         useSoftwareRenderer: Boolean = false,
@@ -96,10 +104,12 @@ object MelonDSEmulatorConfig {
                     // handle DS 3D at 3x; the software path is unaffected
                     // (it renders at 1x). Honest caveat: the tile borders
                     // are real texture content, so 3x weakens them further
-                    // but may still not erase them completely — if lines
-                    // persist on device, the next lever is a
-                    // presentation-side smoothing filter, not a higher scale.
-                    internalResolutionScaling = 3,
+                    // but may still not erase them completely — the
+                    // presentation-side smoothing filter is the next lever,
+                    // and it is now implemented in MelonDSRenderer (5-tap
+                    // vertical low-pass on the top screen only, texel size
+                    // derived from the effective compositor scale).
+                    internalResolutionScaling = INTERNAL_RESOLUTION_SCALING,
                 ),
         )
     }
