@@ -28,6 +28,8 @@ import com.fredporciuncula.flow.preferences.FlowSharedPreferences
 import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.coversearch.CoverSearchScreen
 import com.swordfish.lemuroid.app.mobile.feature.coversearch.CoverSearchViewModel
+import com.swordfish.lemuroid.app.mobile.feature.detail.GameDetailScreen
+import com.swordfish.lemuroid.app.mobile.feature.detail.GameDetailViewModel
 import com.swordfish.lemuroid.app.mobile.feature.favorites.FavoritesScreen
 import com.swordfish.lemuroid.app.mobile.feature.favorites.FavoritesViewModel
 import com.swordfish.lemuroid.app.mobile.feature.games.GamesScreen
@@ -71,6 +73,7 @@ import com.swordfish.lemuroid.lib.library.SystemID
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.preferences.SharedPreferencesHelper
+import com.swordfish.lemuroid.lib.saves.StatesManager
 import com.swordfish.lemuroid.lib.savesync.SaveSyncManager
 import com.swordfish.lemuroid.lib.storage.DirectoriesManager
 import dagger.Provides
@@ -104,6 +107,9 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
 
     @Inject
     lateinit var inputDeviceManager: InputDeviceManager
+
+    @Inject
+    lateinit var statesManager: StatesManager
 
     private val reviewManager = ReviewManager()
 
@@ -157,8 +163,11 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
                 selectedGameState.value = game
             }
 
+            // Tapping a game opens its detail page (hero, play button, play
+            // time / saves / system); the long-press menu still offers
+            // direct play. See the Pixel template for the detail layout.
             val onGameClick = { game: Game ->
-                gameInteractor.onGamePlay(game)
+                navController.navigate("game/${game.id}")
             }
 
             val onGameFavoriteToggle = { game: Game, isFavorite: Boolean ->
@@ -201,11 +210,29 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
                                             applicationContext,
                                             retrogradeDb,
                                             coresSelection,
+                                            statesManager,
                                         ),
                                 ),
                             onGameClick = onGameClick,
                             onGameLongClick = onGameLongClick,
                             onOpenCoreSelection = { navController.navigateToRoute(MainRoute.SETTINGS_CORES_SELECTION) },
+                        )
+                    }
+                    composable(MainRoute.GAME_DETAIL) { entry ->
+                        val gameId = entry.arguments?.getInt("gameId")
+                        GameDetailScreen(
+                            modifier = Modifier.padding(padding),
+                            viewModel =
+                                viewModel(
+                                    factory =
+                                        GameDetailViewModel.Factory(
+                                            retrogradeDb,
+                                            coresSelection,
+                                            statesManager,
+                                            gameId!!,
+                                        ),
+                                ),
+                            onPlayClick = { gameInteractor.onGamePlay(it) },
                         )
                     }
                     composable(MainRoute.FAVORITES) {

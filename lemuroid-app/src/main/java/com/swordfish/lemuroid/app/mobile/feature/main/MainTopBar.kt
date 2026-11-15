@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
@@ -19,13 +18,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -80,7 +77,9 @@ fun LemuroidTopAppBar(
     onUpdateQueryString: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val topBarColor = BottomAppBarDefaults.containerColor
+    // Pixel style: a solid surfaceContainer block, no translucency and no
+    // tonal-elevation shimmer on scroll.
+    val topBarColor = MaterialTheme.colorScheme.surfaceContainer
 
     TopAppBar(
         title = {
@@ -179,21 +178,15 @@ private fun LemuroidSearchView(
         focusRequester.requestFocus()
     }
 
+    // Pixel style: the search field is a solid surfaceContainerHigh block,
+    // not a floating tonal-elevation surface with a transparent field over
+    // it (the old look read as glass).
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .height(56.dp),
     ) {
-        Surface(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = 8.dp, bottom = 8.dp, end = 8.dp),
-            shape = RoundedCornerShape(100),
-            tonalElevation = 16.dp,
-        ) { }
-
         TextField(
             value = mainUIState.searchQuery,
             modifier =
@@ -201,6 +194,7 @@ private fun LemuroidSearchView(
                     .fillMaxSize()
                     .focusRequester(focusRequester),
             textStyle = MaterialTheme.typography.bodyMedium,
+            shape = RoundedCornerShape(100),
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             onValueChange = { onUpdateQueryString(it) },
             singleLine = true,
@@ -210,8 +204,8 @@ private fun LemuroidSearchView(
                 ),
             colors =
                 TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                 ),

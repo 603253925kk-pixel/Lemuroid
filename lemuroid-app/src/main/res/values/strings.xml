@@ -1,5 +1,21 @@
 <resources>
-    <string name="title_home">Home</string>
+    <string name="title_home">Game Library</string>
+    <string name="game_library_title">Game Library</string>
+    <string name="home_section_recently_played">Recently played</string>
+    <string name="home_section_all_games">All games</string>
+    <string name="home_recent_continue">Continue</string>
+    <string name="home_recent_continue_slot">Continue · Save #%1$d</string>
+    <string name="game_detail_title">Game details</string>
+    <string name="game_detail_play">Play</string>
+    <string name="game_detail_play_time">Play time</string>
+    <string name="game_detail_saves">Saves</string>
+    <string name="game_detail_info">Game info</string>
+    <string name="game_detail_platform">Platform</string>
+    <string name="game_detail_developer">Developer</string>
+    <string name="game_detail_no_play_time">Not played yet</string>
+    <string name="game_detail_no_saves">No saves</string>
+    <string name="game_detail_slot_saves">%1$d slot saves</string>
+    <string name="game_detail_auto_save">Auto-save</string>
     <string name="title_search">Search</string>
     <string name="title_systems">Systems</string>
     <string name="title_games">Games</string>
@@ -71,6 +87,10 @@
 
     <string name="settings_title_direct_game_load">Direct game load</string>
     <string name="settings_description_direct_game_load">(Experimental) Reduce loading time and cache usage on supported consoles.</string>
+    <string name="settings_title_melonds_engine">NDS 使用 melonDS 新引擎</string>
+    <string name="settings_description_melonds_engine">开启时 NDS 游戏使用带 GPU 渲染的新引擎（3D 场景更流畅）；关闭时使用原来的 libretro 核心。两种引擎的存档互通。</string>
+    <string name="settings_title_melonds_software_renderer">NDS 新引擎使用软件渲染</string>
+    <string name="settings_description_melonds_software_renderer">开启时新引擎改用 CPU 软件渲染（画面颜色最准确，但 3D 场景会慢）；关闭时用 GPU 渲染。若 GPU 渲染下颜色不对（如水面发橙），打开此项对比。</string>
 
     <string name="settings_title_enable_rumble">Rumble</string>
     <string name="settings_description_enable_rumble">Enable rumble in supported games and controllers</string>
@@ -109,7 +129,7 @@
     <string name="cover_search_title">Find cover online</string>
     <string name="cover_search_keyword_label">Game title keywords</string>
     <string name="cover_search_search">Search</string>
-    <string name="cover_search_hint">Covers come from this system\'s library in the libretro thumbnails collection. If nothing fits, try searching with the game\'s original English title.</string>
+    <string name="cover_search_hint">Covers are gathered from several sources: the libretro thumbnails collection plus web image search (Baidu and Bing), so Chinese-titled and modified games can be found too.</string>
     <string name="cover_search_loading">Loading cover list…</string>
     <string name="cover_search_empty">No similar covers found. Try different keywords.</string>
     <string name="cover_search_error">Couldn\'t load the cover list. Check your connection and try again.</string>

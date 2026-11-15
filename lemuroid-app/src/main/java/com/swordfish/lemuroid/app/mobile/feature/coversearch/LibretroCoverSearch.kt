@@ -106,6 +106,10 @@ private val ARTICLES = setOf("the", "a", "an")
         val displayName: String,
         val imageUrl: String,
         val score: Double,
+        /** Original-resolution image to download when picked; [imageUrl] may be a smaller preview. */
+        val fullImageUrl: String = imageUrl,
+        /** Where this candidate came from, e.g. the thumbnails library or a web image search. */
+        val sourceLabel: String = "封面库",
     )
 
     /**
@@ -251,7 +255,17 @@ private val ARTICLES = setOf("the", "a", "an")
         targetFile: File,
     ): File =
         withContext(Dispatchers.IO) {
-            val request = Request.Builder().url(candidate.imageUrl).build()
+            val request =
+                Request.Builder()
+                    .url(candidate.fullImageUrl)
+                    // Some image hosts refuse bare HTTP clients; a browser
+                    // user agent is enough for the cover sources we merge.
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                    )
+                    .build()
             val bytes =
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {

@@ -8,11 +8,11 @@ import androidx.lifecycle.viewModelScope
 import com.swordfish.lemuroid.app.mobile.feature.coversearch.LibretroCoverSearch.CoverCandidate
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.library.db.entity.Game
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import java.io.File
@@ -55,6 +55,7 @@ class CoverSearchViewModel(
 
     /** Directory index of the game's system, downloaded once and re-ranked locally. */
     private var allFileNames: List<String> = emptyList()
+    private var indexLoaded = false
     private var repositoryName: String? = null
 
     init {
@@ -73,7 +74,7 @@ class CoverSearchViewModel(
             uiStateFlow.value =
                 uiStateFlow.value.copy(game = game, query = initialQuery)
 
-            fetchIndexAndRank()
+            searchAll()
         }
     }
 
@@ -81,21 +82,13 @@ class CoverSearchViewModel(
         uiStateFlow.value = uiStateFlow.value.copy(query = newQuery)
     }
 
-    /**
-     * Runs a search with the current keywords. When the directory index has not
-     * been downloaded yet (first run or after a failure) it is fetched first;
-     * otherwise the cached index is simply re-ranked locally.
-     */
+    /** Runs a search with the current keywords across every cover source. */
     fun search() {
         if (uiStateFlow.value.isLoadingList) {
             return
         }
         viewModelScope.launch {
-            if (allFileNames.isEmpty()) {
-                fetchIndexAndRank()
-            } else {
-                rankWithCurrentQuery()
-            }
+            searchAll()
         }
     }
 
@@ -131,34 +124,56 @@ class CoverSearchViewModel(
         uiStateFlow.value = uiStateFlow.value.copy(appliedCoverUri = null)
     }
 
-    private suspend fun fetchIndexAndRank() {
-        val repository = repositoryName ?: return
-        uiStateFlow.value =
-            uiStateFlow.value.copy(isLoadingList = true, listError = false)
-        runCatching {
-            LibretroCoverSearch.fetchBoxartFileNames(httpClient, repository)
-        }.onSuccess { fileNames ->
-            allFileNames = fileNames
-            rankWithCurrentQuery()
-        }.onFailure { error ->
-            Timber.e(error, "Failed to fetch boxart index for $repository")
-            uiStateFlow.value =
-                uiStateFlow.value.copy(isLoadingList = false, listError = true)
-        }
-    }
-
-    private suspend fun rankWithCurrentQuery() {
+    /**
+     * Queries all cover sources in parallel and merges their candidates:
+     * the libretro thumbnails library first (authoritative boxart, ranked
+     * locally against the cached directory index), then web image search
+     * (Baidu, then Bing), which is where Chinese-titled and modified ROMs
+     * can be found at all. A source that fails only removes itself; the
+     * error state is shown solely when every source failed.
+     */
+    private suspend fun searchAll() {
         val repository = repositoryName ?: return
         val query = uiStateFlow.value.query
-        val candidates =
-            withContext(Dispatchers.Default) {
-                LibretroCoverSearch.rankCandidates(allFileNames, repository, query)
+        uiStateFlow.value =
+            uiStateFlow.value.copy(isLoadingList = true, listError = false)
+
+        var anySourceSucceeded = false
+        val merged =
+            coroutineScope {
+                val libretro =
+                    async {
+                        runCatching {
+                            if (!indexLoaded) {
+                                allFileNames =
+                                    LibretroCoverSearch.fetchBoxartFileNames(httpClient, repository)
+                                indexLoaded = true
+                            }
+                            LibretroCoverSearch.rankCandidates(allFileNames, repository, query)
+                        }
+                    }
+                val baidu = async { runCatching { WebCoverSearch.searchBaidu(httpClient, query) } }
+                val bing = async { runCatching { WebCoverSearch.searchBing(httpClient, query) } }
+
+                listOf(libretro.await(), baidu.await(), bing.await())
+                    .onEach { result ->
+                        result
+                            .onSuccess { anySourceSucceeded = true }
+                            .onFailure { Timber.w(it, "A cover source failed") }
+                    }
+                    .flatMap { it.getOrDefault(emptyList()) }
+                    .distinctBy { it.fullImageUrl }
             }
+
         uiStateFlow.value =
             uiStateFlow.value.copy(
                 isLoadingList = false,
-                listError = false,
-                candidates = candidates,
+                listError = merged.isEmpty() && !anySourceSucceeded,
+                candidates = merged.take(MAX_TOTAL_RESULTS),
             )
+    }
+
+    private companion object {
+        const val MAX_TOTAL_RESULTS = 48
     }
 }

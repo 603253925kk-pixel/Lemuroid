@@ -110,6 +110,16 @@ private fun GeneralSettings(
             title = { Text(text = stringResource(id = R.string.settings_title_direct_game_load)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_direct_game_load)) },
         )
+        LemuroidSettingsSwitch(
+            state = booleanPreferenceState(R.string.pref_key_melonds_engine, true),
+            title = { Text(text = stringResource(id = R.string.settings_title_melonds_engine)) },
+            subtitle = { Text(text = stringResource(id = R.string.settings_description_melonds_engine)) },
+        )
+        LemuroidSettingsSwitch(
+            state = booleanPreferenceState(R.string.pref_key_melonds_software_renderer, false),
+            title = { Text(text = stringResource(id = R.string.settings_title_melonds_software_renderer)) },
+            subtitle = { Text(text = stringResource(id = R.string.settings_description_melonds_software_renderer)) },
+        )
         LemuroidSettingsMenuLink(
             title = { Text(text = stringResource(id = R.string.settings_title_reset_settings)) },
             subtitle = { Text(text = stringResource(id = R.string.settings_description_reset_settings)) },

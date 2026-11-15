@@ -1,9 +1,7 @@
 package com.swordfish.lemuroid.app.mobile.feature.game
 
 import android.graphics.RectF
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,16 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.RotateLeft
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -54,8 +48,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
@@ -330,7 +322,7 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
         }
 
         if (!isLandscape && touchControlsVisibleState.value) {
-            FastForwardButton(
+            HandheldFastForwardButton(
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
@@ -339,6 +331,7 @@ fun MobileGameScreen(viewModel: BaseGameScreenViewModel) {
                 preferredSpeed = fastForwardPreferredSpeedState.value,
                 onToggle = { viewModel.toggleFastForward() },
                 onSelectSpeed = { viewModel.selectFastForwardSpeed(it) },
+                speedOptions = BaseGameScreenViewModel.FAST_FORWARD_SPEEDS,
             )
         }
 
@@ -497,87 +490,5 @@ private fun MenuEditTouchControlRow(
             contentDescription = label,
         )
         slider()
-    }
-}
-
-/**
- * On-screen fast-forward toggle for the handheld shell, sitting in the lower
- * body area next to the start/select cluster. A tap toggles fast-forward at
- * the selected multiplier; a long press opens the multiplier menu. The state
- * comes from [BaseGameScreenViewModel], so the button, the game menu and the
- * gamepad shortcut always agree.
- */
-@Composable
-@OptIn(ExperimentalFoundationApi::class)
-private fun FastForwardButton(
-    modifier: Modifier = Modifier,
-    fastForwardSpeed: Int,
-    preferredSpeed: Int,
-    onToggle: () -> Unit,
-    onSelectSpeed: (Int) -> Unit,
-) {
-    val isActive = fastForwardSpeed > 1
-    val displayedSpeed = if (isActive) fastForwardSpeed else preferredSpeed
-    var menuExpanded by remember { mutableStateOf(false) }
-    val buttonDescription =
-        stringResource(com.swordfish.lemuroid.R.string.game_fast_forward_button)
-
-    Box(modifier = modifier.wrapContentSize()) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isActive) {
-                                ShellTheme.fastForwardActive
-                            } else {
-                                ShellTheme.fastForwardInactive.copy(alpha = 0.9f)
-                            },
-                        )
-                        .combinedClickable(
-                            onClick = onToggle,
-                            onLongClick = { menuExpanded = true },
-                        )
-                        .semantics { contentDescription = buttonDescription },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "»»",
-                    color = if (isActive) Color(0xFF2E2150) else Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Text(
-                text = "${displayedSpeed}x",
-                color = ShellTheme.fastForwardLabel,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-        DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false },
-        ) {
-            BaseGameScreenViewModel.FAST_FORWARD_SPEEDS.forEach { speed ->
-                DropdownMenuItem(
-                    text = { Text(text = "${speed}x") },
-                    onClick = {
-                        onSelectSpeed(speed)
-                        menuExpanded = false
-                    },
-                    leadingIcon = {
-                        if (speed == preferredSpeed) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                )
-            }
-        }
     }
 }

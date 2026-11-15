@@ -1,7 +1,9 @@
 package com.swordfish.lemuroid.app.mobile.feature.game
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +11,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,10 +51,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.swordfish.lemuroid.R
 
 /**
  * Central palette of the portrait handheld shell: dark charcoal body in the
@@ -91,6 +104,12 @@ enum class ShellStyle(
 fun HandheldShellBody(
     modifier: Modifier = Modifier,
     style: ShellStyle = ShellStyle.CHARCOAL,
+    // Optional live FPS readout (melonDS engine path only): shown small at
+    // the right end of the POWER row, clear of every button — the pads'
+    // SELECT/START secondaries sit right below this row, so a centered pill
+    // here would cover them. The libretro path leaves this null and the row
+    // renders exactly as before.
+    fpsText: String? = null,
 ) {
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
@@ -124,26 +143,40 @@ fun HandheldShellBody(
         contentAlignment = Alignment.TopCenter,
     ) {
         // Power LED with its micro label, like on real handhelds: a small
-        // lived detail on the deck, centered clear of the two pads.
-        Row(
-            modifier = Modifier.padding(top = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        // lived detail on the deck, centered clear of the two pads. The FPS
+        // readout (engine path only) rides at the row's right end.
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(top = 9.dp, start = 16.dp, end = 16.dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(ShellTheme.powerLed),
-            )
-            Text(
-                text = "POWER",
-                color = ShellTheme.detailLabel.copy(alpha = 0.75f),
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-            )
+            Row(
+                modifier = Modifier.align(Alignment.TopCenter),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(ShellTheme.powerLed),
+                )
+                Text(
+                    text = "POWER",
+                    color = ShellTheme.detailLabel.copy(alpha = 0.75f),
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+            }
+            if (fpsText != null) {
+                Text(
+                    text = fpsText,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    color = ShellTheme.detailLabel,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }
@@ -462,6 +495,12 @@ fun GameViewportShellBox(
     frameMode: ShellFrameMode,
     onPositioned: (Rect) -> Unit,
     applyCutoutPadding: Boolean = true,
+    // Optional content hosted inside the viewport (M4): the melonDS shell
+    // embeds its GLSurfaceView here via AndroidView, so the surface is
+    // sized exactly to the frame rect and the frame drawn by this box lines
+    // up with it by construction. The libretro path leaves this empty and
+    // keeps its full-screen surface below the shell layers.
+    content: @Composable () -> Unit = {},
 ) {
     // The geometry-driven shells (frameMode != NONE) size this placeholder
     // to exactly the core frame's aspect and fold the display cutout into
@@ -487,7 +526,9 @@ fun GameViewportShellBox(
                     }
                     drawContent()
                 },
-    )
+    ) {
+        content()
+    }
 }
 
 /**
@@ -635,4 +676,92 @@ private fun DrawScope.drawHandheldScreenFrame(dualScreen: Boolean) {
         end = Offset(outer.right - outerRadius, outer.top + 1.dp.toPx()),
         strokeWidth = 1.dp.toPx(),
     )
+}
+
+/**
+ * On-screen fast-forward control for the handheld shell, sitting at the
+ * bottom center of the deck between the pads. A tap toggles fast-forward at
+ * the selected multiplier; a long press opens the multiplier menu — unless
+ * [showSpeedMenu] is false (the melonDS engine path: its fast-forward is a
+ * Boolean toggle with no speed gears, so the menu would offer speeds that do
+ * nothing). Shared by the libretro shell (MobileGameScreen) and the melonDS
+ * shell (MelonDSGameShell) so both decks show the same pill.
+ */
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+fun HandheldFastForwardButton(
+    modifier: Modifier = Modifier,
+    fastForwardSpeed: Int,
+    preferredSpeed: Int,
+    onToggle: () -> Unit,
+    onSelectSpeed: (Int) -> Unit,
+    speedOptions: List<Int> = listOf(2, 3, 4),
+    showSpeedMenu: Boolean = true,
+) {
+    val isActive = fastForwardSpeed > 1
+    val displayedSpeed = if (isActive) fastForwardSpeed else preferredSpeed
+    var menuExpanded by remember { mutableStateOf(false) }
+    val buttonDescription =
+        stringResource(R.string.game_fast_forward_button)
+
+    Box(modifier = modifier.wrapContentSize()) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isActive) {
+                                ShellTheme.fastForwardActive
+                            } else {
+                                ShellTheme.fastForwardInactive.copy(alpha = 0.9f)
+                            },
+                        )
+                        .combinedClickable(
+                            onClick = onToggle,
+                            onLongClick = { if (showSpeedMenu) menuExpanded = true },
+                        )
+                        .semantics { contentDescription = buttonDescription },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "»»",
+                    color = if (isActive) Color(0xFF2E2150) else Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Text(
+                text = "${displayedSpeed}x",
+                color = ShellTheme.fastForwardLabel,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        if (showSpeedMenu) {
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                speedOptions.forEach { speed ->
+                    DropdownMenuItem(
+                        text = { Text(text = "${speed}x") },
+                        onClick = {
+                            onSelectSpeed(speed)
+                            menuExpanded = false
+                        },
+                        leadingIcon = {
+                            if (speed == preferredSpeed) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
 }

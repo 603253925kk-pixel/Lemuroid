@@ -1,6 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="title_home">首页</string>
+    <string name="title_home">游戏库</string>
+    <string name="game_library_title">游戏库</string>
+    <string name="home_section_recently_played">最近游玩</string>
+    <string name="home_section_all_games">全部游戏</string>
+    <string name="home_recent_continue">继续</string>
+    <string name="home_recent_continue_slot">继续 · 存档 #%1$d</string>
+    <string name="game_detail_title">游戏详情</string>
+    <string name="game_detail_play">开始游戏</string>
+    <string name="game_detail_play_time">游玩时长</string>
+    <string name="game_detail_saves">存档</string>
+    <string name="game_detail_info">游戏信息</string>
+    <string name="game_detail_platform">平台</string>
+    <string name="game_detail_developer">开发者</string>
+    <string name="game_detail_no_play_time">尚未游玩</string>
+    <string name="game_detail_no_saves">无存档</string>
+    <string name="game_detail_slot_saves">即时存档 %1$d 个</string>
+    <string name="game_detail_auto_save">自动存档</string>
     <string name="title_search">搜索</string>
     <string name="title_systems">系统</string>
     <string name="title_games">游戏</string>
@@ -85,7 +101,7 @@
     <string name="cover_search_title">在线找封面</string>
     <string name="cover_search_keyword_label">搜索关键词</string>
     <string name="cover_search_search">搜索</string>
-    <string name="cover_search_hint">封面来自该系统在 libretro 官方缩略图库中的目录。如果没找到合适的，可以把关键词改成游戏的英文原名再搜。</string>
+    <string name="cover_search_hint">封面来自多个来源：libretro 官方封面库 + 网络图片搜索（百度、Bing），中文名和改版游戏也能搜到。</string>
     <string name="cover_search_loading">正在加载封面列表…</string>
     <string name="cover_search_empty">没有找到相似的封面，换个关键词试试。</string>
     <string name="cover_search_error">封面列表加载失败，请检查网络后重试。</string>
