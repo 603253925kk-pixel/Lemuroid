@@ -64,8 +64,11 @@
     <string name="setting_handy_rot">Display rotation</string>
     <string name="setting_citra_layout_option">Screens layout</string>
     <string name="setting_citra_resolution_factor">Resolution scaling</string>
-    <string name="setting_citra_use_acc_mul">Accurate shaders multiplication</string>
-    <string name="setting_citra_use_acc_geo_shaders">Accurate geometry shaders</string>
+    <string name="setting_citra_shaders_accurate_mul">Accurate multiplication</string>
+    <string name="setting_flycast_internal_resolution">Internal resolution</string>
+    <string name="setting_flycast_threaded_rendering">Threaded rendering</string>
+    <string name="setting_flycast_frame_skipping">Frame skipping</string>
+    <string name="setting_sameboy_color_correction_mode">Color correction</string>
 
     <!-- Core settings values. Duplicated here to ease the translation process. -->
     <string name="value_gambatte_mix_frames_disabled">Disabled</string>
@@ -125,6 +128,8 @@
     <string name="value_melonds_mic_input_blow">Simulate blow sounds</string>
 
     <string name="value_citra_layout_option_topbottom">Top - Bottom</string>
+    <string name="value_citra_layout_option_singlescreen">Single Screen</string>
+    <string name="value_citra_layout_option_largescreen">Large Screen</string>
     <string name="value_citra_layout_option_sidebyside">Left - Right</string>
 
     <string name="value_desmume_screens_layout_topbottom">Top - Bottom</string>

@@ -8,6 +8,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Fusion batch 1: Flycast / Azahar / SameBoy are prebuilt libretro cores
+// downloaded from the buildbot at build time (see downloadFusionCores
+// below) and bundled as jniLibs. They cannot travel through the git
+// snapshot-push channel, and the LemuroidCores submodule is a separate
+// repo this fork cannot modify, so the app module fetches them itself.
+val fusionCoresDir = layout.buildDirectory.dir("fusion-cores")
+
 android {
     defaultConfig {
         // Every CI build used to ship the same versionCode 252, so the
@@ -83,6 +90,13 @@ android {
         }
     }
 
+    sourceSets {
+        named("main") {
+            // Prebuilt fusion cores, downloaded by downloadFusionCores.
+            jniLibs.srcDir(fusionCoresDir)
+        }
+    }
+
     signingConfigs {
         maybeCreate("debug").apply {
             storeFile = file("$rootDir/debug.keystore")
@@ -127,6 +141,218 @@ android {
         jvmTarget = "17"
     }
     namespace = "com.swordfish.lemuroid"
+}
+
+// Downloads the fusion batch 1 prebuilt libretro cores (Flycast, Azahar,
+// SameBoy) from the libretro buildbot and stages them under
+// build/fusion-cores/<abi>/, where the main sourceSet picks them up as
+// jniLibs (see sourceSets above). The buildbot keeps no dated core
+// archives — only a rolling `latest/` directory — so the task pins the
+// source to `latest/` and instead verifies every downloaded .so: valid
+// zip, expected file present, sane size, ELF magic, and 16 KB PT_LOAD
+// alignment (the target phone is a 16 KB page-size device; a misaligned
+// core would fail to load). Any mismatch fails the build loudly instead
+// of shipping a broken APK. arm64-v8a is required for every core; the
+// other ABIs are best-effort (a 404 there only warns and skips).
+// Azahar ships arm64-v8a only: the 3DS system entry restricts it to that
+// ABI. To bump a core, edit the fetchFusionCore calls below.
+tasks.register("downloadFusionCores") {
+    doLast {
+        // Fails the build unless every PT_LOAD segment of the .so is
+        // 16 KB aligned. Same check the local tooling uses (verified
+        // against the 2026-11-15 nightly downloads).
+        fun checkElf16kAlignment(soFile: java.io.File) {
+            val bytes = soFile.readBytes()
+            if (bytes.size < 64) {
+                throw org.gradle.api.GradleException("${soFile.name}: too small to be an ELF file")
+            }
+            if (bytes[0] != 0x7F.toByte() || bytes[1] != 'E'.code.toByte() ||
+                bytes[2] != 'L'.code.toByte() || bytes[3] != 'F'.code.toByte()
+            ) {
+                throw org.gradle.api.GradleException("${soFile.name}: not an ELF file")
+            }
+            fun u16(off: Int): Int =
+                (bytes[off].toInt() and 0xFF) or ((bytes[off + 1].toInt() and 0xFF) shl 8)
+            fun u32(off: Int): Long {
+                var v = 0L
+                for (i in 0 until 4) v = v or ((bytes[off + i].toLong() and 0xFF) shl (8 * i))
+                return v
+            }
+            fun u64(off: Int): Long {
+                var v = 0L
+                for (i in 0 until 8) v = v or ((bytes[off + i].toLong() and 0xFF) shl (8 * i))
+                return v
+            }
+            val is64Bit = bytes[4].toInt() == 2
+            val phoff = if (is64Bit) u64(32) else u32(28)
+            val phentsize = if (is64Bit) u16(54) else u16(42)
+            val phnum = if (is64Bit) u16(56) else u16(44)
+            // p_type at +0 (4 bytes); p_align at +48 (8 bytes) for
+            // 64-bit, +28 (4 bytes) for 32-bit.
+            val alignOff = if (is64Bit) 48 else 28
+            var sawLoad = false
+            for (i in 0 until phnum) {
+                val entryOff = (phoff + i.toLong() * phentsize).toInt()
+                if (u32(entryOff).toInt() != 1) continue // not PT_LOAD
+                sawLoad = true
+                val align = if (is64Bit) u64(entryOff + alignOff) else u32(entryOff + alignOff)
+                if (align < 16384) {
+                    throw org.gradle.api.GradleException(
+                        "${soFile.name}: PT_LOAD segment $i has p_align=$align, " +
+                            "expected 16384 (16 KB page size). Refusing to bundle " +
+                            "a core that would fail to load on 16 KB devices.",
+                    )
+                }
+            }
+            if (!sawLoad) {
+                throw org.gradle.api.GradleException("${soFile.name}: no PT_LOAD segments found")
+            }
+        }
+
+        fun fetchFusionCore(
+            zipName: String,
+            innerName: String,
+            targetName: String,
+            abi: String,
+            minSizeBytes: Long,
+            required: Boolean,
+            outDir: java.io.File,
+        ) {
+            val url =
+                java.net.URL("https://buildbot.libretro.com/nightly/android/latest/$abi/$zipName")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.setRequestProperty("User-Agent", "Lemuroid-FusionCores/1.0")
+            conn.connectTimeout = 30_000
+            conn.readTimeout = 180_000
+            try {
+                if (conn.responseCode != 200) {
+                    val msg =
+                        "downloadFusionCores: $zipName for $abi unavailable " +
+                            "(HTTP ${conn.responseCode})"
+                    if (required) throw org.gradle.api.GradleException(msg)
+                    println("$msg, skipping")
+                    return
+                }
+                val zipFile = java.io.File.createTempFile("fusion-core-", ".zip")
+                try {
+                    conn.inputStream.use { input ->
+                        zipFile.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    if (zipFile.length() < 10_000) {
+                        throw org.gradle.api.GradleException(
+                            "$zipName for $abi downloaded only ${zipFile.length()} bytes, " +
+                                "looks truncated",
+                        )
+                    }
+                    val destDir = java.io.File(outDir, abi)
+                    val destFile = java.io.File(destDir, targetName)
+                    var found = false
+                    java.util.zip.ZipInputStream(zipFile.inputStream().buffered()).use { zin ->
+                        var entry = zin.nextEntry
+                        while (entry != null) {
+                            if (entry.name == innerName) {
+                                destDir.mkdirs()
+                                destFile.outputStream().use { out -> zin.copyTo(out) }
+                                found = true
+                                break
+                            }
+                            entry = zin.nextEntry
+                        }
+                    }
+                    if (!found) {
+                        throw org.gradle.api.GradleException("$innerName not found in $zipName ($abi)")
+                    }
+                    if (destFile.length() < minSizeBytes) {
+                        throw org.gradle.api.GradleException(
+                            "$innerName ($abi) is only ${destFile.length()} bytes, " +
+                                "expected at least $minSizeBytes",
+                        )
+                    }
+                    checkElf16kAlignment(destFile)
+                    println(
+                        "downloadFusionCores: $targetName ($abi) " +
+                            "${destFile.length()} bytes, 16 KB aligned",
+                    )
+                } finally {
+                    zipFile.delete()
+                }
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+        val outDir = fusionCoresDir.get().asFile
+        // Flycast — Dreamcast / Naomi / Atomiswave.
+        fetchFusionCore(
+            "flycast_libretro_android.so.zip",
+            "flycast_libretro_android.so",
+            "libflycast_libretro_android.so",
+            "arm64-v8a",
+            1_000_000,
+            true,
+            outDir,
+        )
+        fetchFusionCore(
+            "flycast_libretro_android.so.zip",
+            "flycast_libretro_android.so",
+            "libflycast_libretro_android.so",
+            "armeabi-v7a",
+            1_000_000,
+            false,
+            outDir,
+        )
+        fetchFusionCore(
+            "flycast_libretro_android.so.zip",
+            "flycast_libretro_android.so",
+            "libflycast_libretro_android.so",
+            "x86_64",
+            1_000_000,
+            false,
+            outDir,
+        )
+        // Azahar — Nintendo 3DS (arm64-v8a only).
+        fetchFusionCore(
+            "azahar_libretro.so.zip",
+            "azahar_libretro.so",
+            "azahar_libretro.so",
+            "arm64-v8a",
+            5_000_000,
+            true,
+            outDir,
+        )
+        // SameBoy — Game Boy / Game Boy Color.
+        fetchFusionCore(
+            "sameboy_libretro_android.so.zip",
+            "sameboy_libretro_android.so",
+            "libsameboy_libretro_android.so",
+            "arm64-v8a",
+            100_000,
+            true,
+            outDir,
+        )
+        fetchFusionCore(
+            "sameboy_libretro_android.so.zip",
+            "sameboy_libretro_android.so",
+            "libsameboy_libretro_android.so",
+            "armeabi-v7a",
+            100_000,
+            false,
+            outDir,
+        )
+        fetchFusionCore(
+            "sameboy_libretro_android.so.zip",
+            "sameboy_libretro_android.so",
+            "libsameboy_libretro_android.so",
+            "x86_64",
+            100_000,
+            false,
+            outDir,
+        )
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("downloadFusionCores")
 }
 
 dependencies {

@@ -108,6 +108,11 @@ enum class MetaSystemID(val titleResId: Int, val imageResId: Int, val systemIDs:
         R.drawable.game_system_dos,
         listOf(SystemID.DOS),
     ),
+    DREAMCAST(
+        R.string.game_system_title_dreamcast,
+        R.drawable.game_system_dreamcast,
+        listOf(SystemID.DREAMCAST),
+    ),
     NINTENDO_3DS(
         R.string.game_system_title_3ds,
         R.drawable.game_system_3ds,
@@ -142,6 +147,7 @@ enum class MetaSystemID(val titleResId: Int, val imageResId: Int, val systemIDs:
                 SystemID.LYNX -> LYNX
                 SystemID.ATARI7800 -> ATARI7800
                 SystemID.DOS -> DOS
+                SystemID.DREAMCAST -> DREAMCAST
                 SystemID.NGP -> NGP
                 SystemID.NGC -> NGP
                 SystemID.WS -> WS

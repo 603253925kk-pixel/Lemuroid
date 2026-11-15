@@ -111,6 +111,25 @@ enum class CoreID(
         "DosBox Pure",
         "libdosbox_pure_libretro_android.so",
     ),
+    // Fusion batch 1: bundled as prebuilt cores at build time (see
+    // lemuroid-app/build.gradle.kts downloadFusionCores). Citra stays
+    // declared for existing installs, but no system uses it any more —
+    // Azahar took over the 3DS slot.
+    FLYCAST(
+        "flycast",
+        "Flycast",
+        "libflycast_libretro_android.so",
+    ),
+    AZAHAR(
+        "azahar",
+        "Azahar",
+        "azahar_libretro.so",
+    ),
+    SAMEBOY(
+        "sameboy",
+        "SameBoy",
+        "libsameboy_libretro_android.so",
+    ),
     ;
 
     companion object {

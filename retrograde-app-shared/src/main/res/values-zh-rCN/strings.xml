@@ -59,8 +59,11 @@
     <string name="setting_handy_rot">显示旋转</string>
     <string name="setting_citra_layout_option">屏幕布局</string>
     <string name="setting_citra_resolution_factor">分辨率缩放</string>
-    <string name="setting_citra_use_acc_mul">精准的投影倍数</string>
-    <string name="setting_citra_use_acc_geo_shaders">精确的几何着色器</string>
+    <string name="setting_citra_shaders_accurate_mul">精确乘法</string>
+    <string name="setting_flycast_internal_resolution">内部分辨率</string>
+    <string name="setting_flycast_threaded_rendering">多线程渲染</string>
+    <string name="setting_flycast_frame_skipping">跳帧</string>
+    <string name="setting_sameboy_color_correction_mode">色彩校正</string>
     <!-- Core settings values. Duplicated here to ease the translation process. -->
     <string name="value_gambatte_mix_frames_disabled">停用</string>
     <string name="value_gambatte_mix_frames_mix">简单</string>
@@ -107,6 +110,8 @@
     <string name="value_melonds_mic_input_microphone">外接麦克风</string>
     <string name="value_melonds_mic_input_blow">模拟吹气声</string>
     <string name="value_citra_layout_option_topbottom">上 - 下</string>
+    <string name="value_citra_layout_option_singlescreen">单屏</string>
+    <string name="value_citra_layout_option_largescreen">大屏</string>
     <string name="value_citra_layout_option_sidebyside">左 - 右</string>
     <string name="value_desmume_screens_layout_topbottom">上 - 下</string>
     <string name="value_desmume_screens_layout_leftright">左 - 右</string>
@@ -118,4 +123,6 @@
     <string name="value_handy_rot_none">0度</string>
     <string name="value_handy_rot_90">90度</string>
     <string name="value_handy_rot_270">270度</string>
+    <string name="game_system_title_dreamcast">世嘉 Dreamcast</string>
+    <string name="game_system_abbr_dreamcast">DC</string>
 </resources>

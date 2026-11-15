@@ -60,6 +60,7 @@ object ShaderChooser {
             SystemID.PC_ENGINE -> ShaderConfig.CRT
             SystemID.LYNX -> ShaderConfig.LCD
             SystemID.DOS -> ShaderConfig.CRT
+            SystemID.DREAMCAST -> ShaderConfig.CRT
             SystemID.NGP -> ShaderConfig.LCD
             SystemID.NGC -> ShaderConfig.LCD
             SystemID.WS -> ShaderConfig.LCD
@@ -283,6 +284,7 @@ object ShaderChooser {
             SystemID.PC_ENGINE -> upscale16Bits
             SystemID.LYNX -> upscale8BitsMobile
             SystemID.DOS -> upscale32Bits
+            SystemID.DREAMCAST -> upscale32Bits
             SystemID.NGP -> upscale8BitsMobile
             SystemID.NGC -> upscale8BitsMobile
             SystemID.WS -> upscale16BitsMobile

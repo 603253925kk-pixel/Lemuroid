@@ -414,6 +414,61 @@ data class GameSystem(
                     supportedExtensions = listOf("cue", "iso", "chd"),
                 ),
                 GameSystem(
+                    SystemID.DREAMCAST,
+                    "Sega - Dreamcast",
+                    R.string.game_system_title_dreamcast,
+                    R.string.game_system_abbr_dreamcast,
+                    listOf(
+                        SystemCoreConfig(
+                            CoreID.FLYCAST,
+                            exposedSettings =
+                                listOf(
+                                    ExposedSetting(
+                                        "flycast_internal_resolution",
+                                        R.string.setting_flycast_internal_resolution,
+                                    ),
+                                    ExposedSetting(
+                                        "flycast_threaded_rendering",
+                                        R.string.setting_flycast_threaded_rendering,
+                                    ),
+                                    ExposedSetting(
+                                        "flycast_frame_skipping",
+                                        R.string.setting_flycast_frame_skipping,
+                                    ),
+                                ),
+                            // No Dreamcast touch layout exists yet; the PSX
+                            // DualShock layout is the closest match (two
+                            // sticks, four face buttons, four shoulder
+                            // buttons, Start) and only affects the on-screen
+                            // touch pad, not physical gamepads. Flycast maps
+                            // the Dreamcast triggers to L2/R2.
+                            controllerConfigs =
+                                hashMapOf(
+                                    0 to
+                                        arrayListOf(
+                                            ControllerConfigs.PSX_DUALSHOCK,
+                                        ),
+                                    1 to
+                                        arrayListOf(
+                                            ControllerConfigs.PSX_DUALSHOCK,
+                                        ),
+                                    2 to
+                                        arrayListOf(
+                                            ControllerConfigs.PSX_DUALSHOCK,
+                                        ),
+                                    3 to
+                                        arrayListOf(
+                                            ControllerConfigs.PSX_DUALSHOCK,
+                                        ),
+                                ),
+                            rumbleSupported = true,
+                        ),
+                    ),
+                    uniqueExtensions = listOf("gdi", "cdi"),
+                    supportedExtensions = listOf("gdi", "cdi", "chd", "cue", "m3u"),
+                    hasMultiDiskSupport = true,
+                ),
+                GameSystem(
                     SystemID.GG,
                     "Sega - Game Gear",
                     R.string.game_system_title_gg,
@@ -498,6 +553,13 @@ data class GameSystem(
                                     0 to arrayListOf(ControllerConfigs.GB),
                                 ),
                         ),
+                        SystemCoreConfig(
+                            CoreID.SAMEBOY,
+                            controllerConfigs =
+                                hashMapOf(
+                                    0 to arrayListOf(ControllerConfigs.GB),
+                                ),
+                        ),
                     ),
                     uniqueExtensions = listOf("gb"),
                 ),
@@ -557,6 +619,21 @@ data class GameSystem(
                                 listOf(
                                     CoreVariable("gambatte_gbc_color_correction", "disabled"),
                                 ),
+                            controllerConfigs =
+                                hashMapOf(
+                                    0 to arrayListOf(ControllerConfigs.GB),
+                                ),
+                        ),
+                        SystemCoreConfig(
+                            CoreID.SAMEBOY,
+                            exposedSettings =
+                                listOf(
+                                    ExposedSetting(
+                                        "sameboy_color_correction_mode",
+                                        R.string.setting_sameboy_color_correction_mode,
+                                    ),
+                                ),
+                            rumbleSupported = true,
                             controllerConfigs =
                                 hashMapOf(
                                     0 to arrayListOf(ControllerConfigs.GB),
@@ -1248,18 +1325,15 @@ data class GameSystem(
                     R.string.game_system_abbr_3ds,
                     listOf(
                         SystemCoreConfig(
-                            CoreID.CITRA,
+                            CoreID.AZAHAR,
                             controllerConfigs =
                                 hashMapOf(
                                     0 to arrayListOf(ControllerConfigs.NINTENDO_3DS),
                                 ),
                             defaultSettings =
                                 listOf(
-                                    CoreVariable("citra_use_acc_mul", "disabled"),
-                                    CoreVariable("citra_touch_touchscreen", "enabled"),
-                                    CoreVariable("citra_mouse_touchscreen", "disabled"),
-                                    CoreVariable("citra_render_touchscreen", "disabled"),
-                                    CoreVariable("citra_use_hw_shader_cache", "disabled"),
+                                    CoreVariable("citra_enable_touch_touchscreen", "Enabled"),
+                                    CoreVariable("citra_enable_mouse_touchscreen", "Disabled"),
                                 ),
                             exposedSettings =
                                 listOf(
@@ -1268,8 +1342,16 @@ data class GameSystem(
                                         R.string.setting_citra_layout_option,
                                         arrayListOf(
                                             ExposedSetting.Value(
-                                                "Default Top-Bottom Screen",
+                                                "Default Top-Bottom",
                                                 R.string.value_citra_layout_option_topbottom,
+                                            ),
+                                            ExposedSetting.Value(
+                                                "Single Screen Only",
+                                                R.string.value_citra_layout_option_singlescreen,
+                                            ),
+                                            ExposedSetting.Value(
+                                                "Large Screen, Small Screen",
+                                                R.string.value_citra_layout_option_largescreen,
                                             ),
                                             ExposedSetting.Value(
                                                 "Side by Side",
@@ -1282,12 +1364,8 @@ data class GameSystem(
                                         R.string.setting_citra_resolution_factor,
                                     ),
                                     ExposedSetting(
-                                        "citra_use_acc_mul",
-                                        R.string.setting_citra_use_acc_mul,
-                                    ),
-                                    ExposedSetting(
-                                        "citra_use_acc_geo_shaders",
-                                        R.string.setting_citra_use_acc_geo_shaders,
+                                        "citra_shaders_accurate_mul",
+                                        R.string.setting_citra_shaders_accurate_mul,
                                     ),
                                 ),
                             statesSupported = false,
@@ -1295,7 +1373,7 @@ data class GameSystem(
                             supportedOnlyArchitectures = setOf("arm64-v8a"),
                         ),
                     ),
-                    uniqueExtensions = listOf("3ds"),
+                    uniqueExtensions = listOf("3ds", "cci", "cxi", "3dsx"),
                     hasTouchScreen = true,
                 ),
             )
