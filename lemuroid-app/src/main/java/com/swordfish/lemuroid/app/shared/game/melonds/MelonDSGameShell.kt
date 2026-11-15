@@ -23,7 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.compose.ChainStyle
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -31,11 +33,11 @@ import androidx.constraintlayout.compose.ConstraintSet
 import androidx.constraintlayout.compose.Dimension
 import com.swordfish.lemuroid.app.mobile.feature.game.GameScreenLayout
 import com.swordfish.lemuroid.app.mobile.feature.game.GameViewportShellBox
-import com.swordfish.lemuroid.app.mobile.feature.game.HandheldFastForwardButton
 import com.swordfish.lemuroid.app.mobile.feature.game.HandheldHingeBand
 import com.swordfish.lemuroid.app.mobile.feature.game.HandheldShellBody
 import com.swordfish.lemuroid.app.mobile.feature.game.HandheldShellFullBody
 import com.swordfish.lemuroid.app.mobile.feature.game.ShellFrameMode
+import com.swordfish.lemuroid.app.mobile.feature.game.ShellTheme
 import com.swordfish.lemuroid.lib.preferences.SharedPreferencesHelper
 import com.swordfish.touchinput.radial.LemuroidPadTheme
 import com.swordfish.touchinput.radial.LocalLemuroidPadTheme
@@ -66,13 +68,14 @@ import gg.padkit.inputevents.InputEvent
  * activity's [onPadInputEvent] (mapped onto [me.magnum.melonds.MelonEmulator]
  * there). The pads read the same saved touch settings as the libretro path
  * (scale/margins under the MELONDS portrait key), so a user's pad sizing
- * carries over. The fast-forward pill is the shared [HandheldFastForwardButton]
- * (toggle-only here: the engine has no speed gears, so its long-press menu
- * is disabled), and the FPS readout rides in the shell body's POWER row
- * because the pads' SELECT/START secondaries sit right below it — a
- * centered pill there would cover them. The activity is portrait-locked
- * (see the manifest), so this layout never has to survive a rotation-driven
- * surface re-creation.
+ * carries over. The fast-forward control is a compact »» round button at
+ * the POWER row's left end (slice 7: the full pill used to sit centered
+ * at the deck's bottom, crowding the mic/×/☰ secondaries and the B disc
+ * above them), and the FPS readout is a small muted status line at the
+ * deck's bottom center (slice 7: it used to ride the POWER row's right
+ * end, where the long text strip crowded the R shoulder) — both clear of
+ * every key now. The activity is portrait-locked (see the manifest), so
+ * this layout never has to survive a rotation-driven surface re-creation.
  *
  * Geometry comes from [GameScreenLayout.computePortraitScreenGeometry] with
  * the same side/top margins as the libretro shell, so the two paths render
@@ -193,13 +196,15 @@ fun MelonDSGameShellContent(
                 )
 
                 // Lower body: the shell plate with the POWER row (carrying
-                // the FPS readout), drawn first so the pads sit on it.
+                // the compact fast-forward button at its left end), drawn
+                // first so the pads sit on it.
                 Box(
                     modifier = Modifier.layoutId(GameScreenLayout.CONSTRAINTS_BOTTOM_CONTAINER),
                 ) {
                     HandheldShellBody(
                         modifier = Modifier.fillMaxSize(),
-                        fpsText = fpsText,
+                        fastForwardEnabled = fastForwardEnabled,
+                        onToggleFastForward = onToggleFastForward,
                     )
                 }
 
@@ -223,16 +228,17 @@ fun MelonDSGameShellContent(
                     )
                 }
 
-                // Fast-forward pill, last so it draws over the pads' lower
-                // edges, centered at the deck's bottom like on the libretro
-                // path.
-                HandheldFastForwardButton(
-                    modifier = Modifier.layoutId(MELONDS_FF_BUTTON),
-                    fastForwardSpeed = if (fastForwardEnabled) 2 else 1,
-                    preferredSpeed = 2,
-                    onToggle = onToggleFastForward,
-                    onSelectSpeed = {},
-                    showSpeedMenu = false,
+                // FPS readout: a small muted status line at the deck's
+                // bottom center, in the gap between the pads' bottom-row
+                // secondaries (mic/× left, ☰ right). Plain text, not a
+                // button — it shows the honest presented/engine split
+                // ("显示 60 · 引擎 60 FPS") and touches no key.
+                androidx.compose.material3.Text(
+                    text = fpsText,
+                    modifier = Modifier.layoutId(MELONDS_FPS_TEXT),
+                    color = ShellTheme.detailLabel.copy(alpha = 0.75f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
@@ -257,7 +263,7 @@ private fun melonDSShellConstraintSet(
         val bottomContainer = createRefFor(GameScreenLayout.CONSTRAINTS_BOTTOM_CONTAINER)
         val leftPad = createRefFor(GameScreenLayout.CONSTRAINTS_LEFT_PAD)
         val rightPad = createRefFor(GameScreenLayout.CONSTRAINTS_RIGHT_PAD)
-        val ffButton = createRefFor(MELONDS_FF_BUTTON)
+        val fpsTextRef = createRefFor(MELONDS_FPS_TEXT)
 
         val gamePadChain = createHorizontalChain(leftPad, rightPad, chainStyle = ChainStyle.SpreadInside)
 
@@ -318,15 +324,15 @@ private fun melonDSShellConstraintSet(
             bottom.linkTo(parent.bottom)
         }
 
-        constrain(ffButton) {
+        constrain(fpsTextRef) {
             absoluteLeft.linkTo(parent.absoluteLeft)
             absoluteRight.linkTo(parent.absoluteRight)
-            bottom.linkTo(parent.bottom, margin = 20.dp)
+            bottom.linkTo(parent.bottom, margin = 26.dp)
         }
     }
 
 /** Height the viewport sizing reserves for the controls deck below it. */
 private val MELONDS_DECK_RESERVE = 300.dp
 
-/** Layout id of the fast-forward pill inside the melonDS constraint set. */
-private const val MELONDS_FF_BUTTON = "melondsFfButton"
+/** Layout id of the FPS status line at the deck's bottom center. */
+private const val MELONDS_FPS_TEXT = "melondsFpsText"

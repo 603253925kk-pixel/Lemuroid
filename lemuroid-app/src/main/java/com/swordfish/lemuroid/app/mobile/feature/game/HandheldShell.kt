@@ -104,12 +104,13 @@ enum class ShellStyle(
 fun HandheldShellBody(
     modifier: Modifier = Modifier,
     style: ShellStyle = ShellStyle.CHARCOAL,
-    // Optional live FPS readout (melonDS engine path only): shown small at
-    // the right end of the POWER row, clear of every button — the pads'
-    // SELECT/START secondaries sit right below this row, so a centered pill
-    // here would cover them. The libretro path leaves this null and the row
-    // renders exactly as before.
-    fpsText: String? = null,
+    // Optional fast-forward control (melonDS engine path only): a compact
+    // »» round button at the POWER row's left end, clear of every pad —
+    // the row is the deck's function/status strip, so a function button
+    // belongs here. The libretro path leaves this null and the row
+    // renders exactly as before (POWER LED + label, centered).
+    fastForwardEnabled: Boolean = false,
+    onToggleFastForward: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
@@ -143,11 +144,26 @@ fun HandheldShellBody(
         contentAlignment = Alignment.TopCenter,
     ) {
         // Power LED with its micro label, like on real handhelds: a small
-        // lived detail on the deck, centered clear of the two pads. The FPS
-        // readout (engine path only) rides at the row's right end.
+        // lived detail on the deck, centered clear of the two pads. The
+        // fast-forward button (engine path only) rides at the row's left
+        // end; the FPS readout used to ride at the right end, but as a
+        // long text strip it crowded the R shoulder and read as clutter —
+        // it now lives as a small status line at the deck's bottom center
+        // (see MelonDSGameShell).
         Box(
             modifier = Modifier.fillMaxWidth().padding(top = 9.dp, start = 16.dp, end = 16.dp),
         ) {
+            if (onToggleFastForward != null) {
+                HandheldFastForwardButton(
+                    modifier = Modifier.align(Alignment.TopStart),
+                    fastForwardSpeed = if (fastForwardEnabled) 2 else 1,
+                    preferredSpeed = 2,
+                    onToggle = onToggleFastForward,
+                    onSelectSpeed = {},
+                    showSpeedMenu = false,
+                    compact = true,
+                )
+            }
             Row(
                 modifier = Modifier.align(Alignment.TopCenter),
                 verticalAlignment = Alignment.CenterVertically,
@@ -166,15 +182,6 @@ fun HandheldShellBody(
                     fontSize = 7.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
-                )
-            }
-            if (fpsText != null) {
-                Text(
-                    text = fpsText,
-                    modifier = Modifier.align(Alignment.TopEnd),
-                    color = ShellTheme.detailLabel,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
                 )
             }
         }
@@ -697,6 +704,14 @@ fun HandheldFastForwardButton(
     onSelectSpeed: (Int) -> Unit,
     speedOptions: List<Int> = listOf(2, 3, 4),
     showSpeedMenu: Boolean = true,
+    /**
+     * Compact form for the POWER row (melonDS engine path): a 32dp round
+     * button with no "2x" label underneath — the row is only ~40dp tall
+     * and the speed is fixed at 2x on this engine (toggle-only, no
+     * gears), so the label would buy nothing. The full pill (44dp +
+     * label) stays the default for the libretro deck-bottom placement.
+     */
+    compact: Boolean = false,
 ) {
     val isActive = fastForwardSpeed > 1
     val displayedSpeed = if (isActive) fastForwardSpeed else preferredSpeed
@@ -709,7 +724,7 @@ fun HandheldFastForwardButton(
             Box(
                 modifier =
                     Modifier
-                        .size(44.dp)
+                        .size(if (compact) 32.dp else 44.dp)
                         .clip(CircleShape)
                         .background(
                             if (isActive) {
@@ -728,16 +743,18 @@ fun HandheldFastForwardButton(
                 Text(
                     text = "»»",
                     color = if (isActive) Color(0xFF2E2150) else Color.White,
-                    fontSize = 17.sp,
+                    fontSize = if (compact) 14.sp else 17.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
-            Text(
-                text = "${displayedSpeed}x",
-                color = ShellTheme.fastForwardLabel,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-            )
+            if (!compact) {
+                Text(
+                    text = "${displayedSpeed}x",
+                    color = ShellTheme.fastForwardLabel,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
         if (showSpeedMenu) {
             DropdownMenu(
