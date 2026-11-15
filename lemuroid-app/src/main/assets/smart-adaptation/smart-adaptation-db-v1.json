@@ -1,0 +1,343 @@
+[
+  {
+    "game_code": "IPKE",
+    "title": "Pokemon - HeartGold Version (USA)",
+    "crc32": "C180A0E9",
+    "md5": "258cea3a62ac0d6eb04b5a0fd764d788",
+    "settings": {
+      "internalResolution": 3,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "IPGE",
+    "title": "Pokemon - SoulSilver Version (USA, Australia)",
+    "crc32": "D8EA6090",
+    "md5": "8a6c8888bed9e1dce952f840351b73f2",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "ADAE",
+    "title": "Pokemon - Diamond Version (USA, Australia) (Rev 5)",
+    "crc32": "84427823",
+    "md5": "02a1af2a677d101394b1d99164a8c249",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "APAE",
+    "title": "Pokemon - Pearl Version (USA) (Rev 5)",
+    "crc32": "E2D87EBF",
+    "md5": "e5da92c8cfabedd0d037ff33a2f2b6ba",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "CPUE",
+    "title": "Pokemon - Platinum Version (USA)",
+    "crc32": "9253921D",
+    "md5": "d66ad7a2a0068b5d46e0781ca4953ae9",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AMCE",
+    "title": "Mario Kart DS (USA, Australia) (En,Fr,De,Es,It)",
+    "crc32": "D47555BE",
+    "md5": "8cbf438d5a7c0d9acbe56a9b627ca6c5",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "A2DE",
+    "title": "New Super Mario Bros. (USA, Australia)",
+    "crc32": "0197576A",
+    "md5": "a2ddba012e5c3c2096d0be57cc273be5",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "IRBO",
+    "title": "Pokemon - Black Version (USA, Europe) (NDSi Enhanced)",
+    "crc32": "4F6E5580",
+    "md5": "37bff1431eda9b3a525737c7f59a432d",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "IRAO",
+    "title": "Pokemon - White Version (USA, Europe) (NDSi Enhanced)",
+    "crc32": "B552501C",
+    "md5": "77c34ba77f8fa44e7caf04f695db0560",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AZEE",
+    "title": "Legend of Zelda, The - Phantom Hourglass (USA) (En,Fr,Es)",
+    "crc32": "8B431C41",
+    "md5": "745e372bde611c2ceb3ec5db2bbeb77a",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "ADME",
+    "title": "Animal Crossing - Wild World (USA)",
+    "crc32": "F24508AA",
+    "md5": "8b69d0a78772a5d8df0fafd7b01169ab",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "CLJE",
+    "title": "Mario & Luigi - Bowser's Inside Story (USA) (En,Fr,Es)",
+    "crc32": "32C9F882",
+    "md5": "2926a9cfa86fed8dd6ae60cfe61af39b",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "C2SE",
+    "title": "Pokemon Mystery Dungeon - Explorers of Sky (USA)",
+    "crc32": "22DDE080",
+    "md5": "10af6a1a4d90ffb48bfb6c444324f7fd",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YDQE",
+    "title": "Dragon Quest IX - Sentinels of the Starry Skies (USA) (En,Fr,Es)",
+    "crc32": "AACE5E9C",
+    "md5": "ce8a56bc94f53d7841475edc308b0421",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "A5FE",
+    "title": "Professor Layton and the Curious Village (USA, Australia)",
+    "crc32": "08DAC15E",
+    "md5": "abfd11335cb1f435fe43c53c53249b3b",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "ANDE",
+    "title": "Brain Age - Train Your Brain in Minutes a Day! (USA)",
+    "crc32": "40BB7A81",
+    "md5": "77d2ae1df4367cdacdcf6b4d8d503ecd",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "ADGE",
+    "title": "Nintendogs - Dachshund & Friends (USA)",
+    "crc32": "370D3376",
+    "md5": "eda7d2a26b7418f4ec582e6a95dbb7ac",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "A8TE",
+    "title": "Mario Party DS (USA)",
+    "crc32": "4FFC3B2F",
+    "md5": "1159e291ef3f46a71f27a76853a4ca49",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "ASME",
+    "title": "Super Mario 64 DS (USA)",
+    "crc32": "E6321562",
+    "md5": "82ea4525a39dc2f484a054cff3f1b834",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AYWE",
+    "title": "Yoshi's Island DS (USA)",
+    "crc32": "C9964EE1",
+    "md5": "fefb5eb6cbb6487fba47ab23a35f3da0",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YKWE",
+    "title": "Kirby Super Star Ultra (USA)",
+    "crc32": "DBAC8944",
+    "md5": "c0c84468ce0c9c7b3b97246ec443df1f",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AMHE",
+    "title": "Metroid Prime - Hunters (USA, Australia)",
+    "crc32": "7FE4554A",
+    "md5": "b4c8a9398866b49c7be17d75736a223b",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "ACVE",
+    "title": "Castlevania - Dawn of Sorrow (USA)",
+    "crc32": "135737F6",
+    "md5": "cc0f25b8783fb83cb4588d1c111bdc18",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YQUE",
+    "title": "Chrono Trigger (USA) (En,Fr)",
+    "crc32": "B3836946",
+    "md5": "cb379392a800e236f80b55c84f123e99",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YF4E",
+    "title": "Final Fantasy IV (USA) (En,Fr,Es)",
+    "crc32": "264FAC77",
+    "md5": "68c977b762d5e95f43a3a39026421c04",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AWLE",
+    "title": "World Ends with You, The (USA)",
+    "crc32": "9BD848A7",
+    "md5": "3bfc95753b37c97a6d30018630048a51",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YW2E",
+    "title": "Advance Wars - Days of Ruin (USA) (En,Fr,Es)",
+    "crc32": "EAC313F3",
+    "md5": "b92cd828815becba6eda4c715c433ab0",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YFEE",
+    "title": "Fire Emblem - Shadow Dragon (USA)",
+    "crc32": "FED8157C",
+    "md5": "3f2a22a9949df0f65e4b886089c2395b",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "YGXE",
+    "title": "Grand Theft Auto - Chinatown Wars (USA) (En,Fr,De,Es,It)",
+    "crc32": "CC50CF7E",
+    "md5": "f2d6fd3ca935e82ae7599026a6ba47b4",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AZWE",
+    "title": "WarioWare - Touched! (USA)",
+    "crc32": "2CE68FAD",
+    "md5": "69f4522cf11e4ab3379b9724c62c78bc",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  },
+  {
+    "game_code": "AWDE",
+    "title": "Diddy Kong Racing DS (USA)",
+    "crc32": "6446207B",
+    "md5": "46dbee8efb7cb1b1bd7b62c83b5a9e06",
+    "settings": {
+      "internalResolution": 2,
+      "jit": true,
+      "frameskip": "auto"
+    }
+  }
+]
