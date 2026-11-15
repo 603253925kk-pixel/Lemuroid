@@ -9,6 +9,7 @@ plugins {
 }
 
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipInputStream
@@ -156,12 +157,22 @@ android {
 // source to `latest/` and instead verifies every downloaded .so: valid
 // zip, expected file present, sane size, ELF magic, and 16 KB PT_LOAD
 // alignment (the target phone is a 16 KB page-size device; a misaligned
-// core would fail to load). Any mismatch fails the build loudly instead
-// of shipping a broken APK. arm64-v8a is required for every core; the
-// other ABIs are best-effort (a 404 there only warns and skips).
-// Azahar ships arm64-v8a only: the 3DS system entry restricts it to that
-// ABI. To bump a core, edit the fetchFusionCore calls below.
+// core would fail to load). arm64-v8a is required for every core and any
+// validation failure there fails the build loudly instead of shipping a
+// broken APK. The other ABIs are best-effort: a 404, a failed
+// validation, or a truncated download only warns and skips that ABI
+// (the 32-bit buildbot cores are 4 KB aligned, so they are skipped on
+// purpose rather than bundled broken). The download retries a few times:
+// the buildbot occasionally answers a transient 404 while it rotates
+// `latest/`. Azahar ships arm64-v8a only: the 3DS system entry restricts
+// it to that ABI. To bump a core, edit the fetchFusionCore calls below.
 tasks.register("downloadFusionCores") {
+    // The task downloads from the network and validates the binaries at
+    // execution time, which cannot be serialized into the configuration
+    // cache; opt out instead of failing the build on cache store.
+    notCompatibleWithConfigurationCache(
+        "Downloads prebuilt cores from the network and validates them at execution time",
+    )
     doLast {
         // Fails the build unless every PT_LOAD segment of the .so is
         // 16 KB aligned. Same check the local tooling uses (verified
@@ -214,6 +225,41 @@ tasks.register("downloadFusionCores") {
             }
         }
 
+        // Downloads one core zip, retrying a few times: the buildbot
+        // occasionally answers a transient 404 while it rotates
+        // `latest/`. Returns null (after warning) when a best-effort
+        // ABI stays unavailable; throws for required ABIs.
+        fun downloadZip(url: URL, zipName: String, abi: String, required: Boolean): File? {
+            var lastCode = -1
+            for (attempt in 1..3) {
+                val conn = url.openConnection() as HttpURLConnection
+                conn.setRequestProperty("User-Agent", "Lemuroid-FusionCores/1.0")
+                conn.connectTimeout = 30_000
+                conn.readTimeout = 180_000
+                try {
+                    lastCode = conn.responseCode
+                    if (lastCode == 200) {
+                        val zipFile = File.createTempFile("fusion-core-", ".zip")
+                        conn.inputStream.use { input ->
+                            zipFile.outputStream().use { output -> input.copyTo(output) }
+                        }
+                        return zipFile
+                    }
+                } catch (e: IOException) {
+                    lastCode = -1
+                } finally {
+                    conn.disconnect()
+                }
+                if (attempt < 3) Thread.sleep(5_000)
+            }
+            val msg =
+                "downloadFusionCores: $zipName for $abi unavailable " +
+                    "(HTTP $lastCode)"
+            if (required) throw org.gradle.api.GradleException(msg)
+            println("$msg, skipping")
+            return null
+        }
+
         fun fetchFusionCore(
             zipName: String,
             innerName: String,
@@ -225,64 +271,53 @@ tasks.register("downloadFusionCores") {
         ) {
             val url =
                 URL("https://buildbot.libretro.com/nightly/android/latest/$abi/$zipName")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.setRequestProperty("User-Agent", "Lemuroid-FusionCores/1.0")
-            conn.connectTimeout = 30_000
-            conn.readTimeout = 180_000
+            val zipFile = downloadZip(url, zipName, abi, required) ?: return
+            val destFile = File(File(outDir, abi), targetName)
             try {
-                if (conn.responseCode != 200) {
-                    val msg =
-                        "downloadFusionCores: $zipName for $abi unavailable " +
-                            "(HTTP ${conn.responseCode})"
-                    if (required) throw org.gradle.api.GradleException(msg)
-                    println("$msg, skipping")
-                    return
-                }
-                val zipFile = File.createTempFile("fusion-core-", ".zip")
-                try {
-                    conn.inputStream.use { input ->
-                        zipFile.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    if (zipFile.length() < 10_000) {
-                        throw org.gradle.api.GradleException(
-                            "$zipName for $abi downloaded only ${zipFile.length()} bytes, " +
-                                "looks truncated",
-                        )
-                    }
-                    val destDir = File(outDir, abi)
-                    val destFile = File(destDir, targetName)
-                    var found = false
-                    ZipInputStream(zipFile.inputStream().buffered()).use { zin ->
-                        var entry = zin.nextEntry
-                        while (entry != null) {
-                            if (entry.name == innerName) {
-                                destDir.mkdirs()
-                                destFile.outputStream().use { out -> zin.copyTo(out) }
-                                found = true
-                                break
-                            }
-                            entry = zin.nextEntry
-                        }
-                    }
-                    if (!found) {
-                        throw org.gradle.api.GradleException("$innerName not found in $zipName ($abi)")
-                    }
-                    if (destFile.length() < minSizeBytes) {
-                        throw org.gradle.api.GradleException(
-                            "$innerName ($abi) is only ${destFile.length()} bytes, " +
-                                "expected at least $minSizeBytes",
-                        )
-                    }
-                    checkElf16kAlignment(destFile)
-                    println(
-                        "downloadFusionCores: $targetName ($abi) " +
-                            "${destFile.length()} bytes, 16 KB aligned",
+                if (zipFile.length() < 10_000) {
+                    throw org.gradle.api.GradleException(
+                        "$zipName for $abi downloaded only ${zipFile.length()} bytes, " +
+                            "looks truncated",
                     )
-                } finally {
-                    zipFile.delete()
                 }
+                val destDir = File(outDir, abi)
+                var found = false
+                ZipInputStream(zipFile.inputStream().buffered()).use { zin ->
+                    var entry = zin.nextEntry
+                    while (entry != null) {
+                        if (entry.name == innerName) {
+                            destDir.mkdirs()
+                            destFile.outputStream().use { out -> zin.copyTo(out) }
+                            found = true
+                            break
+                        }
+                        entry = zin.nextEntry
+                    }
+                }
+                if (!found) {
+                    throw org.gradle.api.GradleException("$innerName not found in $zipName ($abi)")
+                }
+                if (destFile.length() < minSizeBytes) {
+                    throw org.gradle.api.GradleException(
+                        "$innerName ($abi) is only ${destFile.length()} bytes, " +
+                            "expected at least $minSizeBytes",
+                    )
+                }
+                checkElf16kAlignment(destFile)
+                println(
+                    "downloadFusionCores: $targetName ($abi) " +
+                        "${destFile.length()} bytes, 16 KB aligned",
+                )
+            } catch (e: org.gradle.api.GradleException) {
+                // A best-effort ABI that fails validation (e.g. the
+                // 32-bit buildbot cores are 4 KB aligned) is skipped
+                // with a warning instead of failing the build; the
+                // 16 KB check still fails loudly for required ABIs.
+                if (required) throw e
+                println("downloadFusionCores: ${e.message} ($abi), skipping")
+                destFile.delete()
             } finally {
-                conn.disconnect()
+                zipFile.delete()
             }
         }
 
