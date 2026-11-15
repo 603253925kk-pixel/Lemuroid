@@ -36,6 +36,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import me.magnum.melonds.MelonDSAndroidInterface
 import me.magnum.melonds.MelonEmulator
+import me.magnum.melonds.domain.model.EmulatorConfiguration
+import me.magnum.melonds.domain.model.RendererConfiguration
 import me.magnum.melonds.common.RetroAchievementsCallback
 import me.magnum.melonds.common.UriFileHandler
 import me.magnum.melonds.domain.model.Input
@@ -74,6 +76,12 @@ class MelonDSGameActivity : ImmersiveActivity() {
     private lateinit var systemCoreConfig: SystemCoreConfig
     private lateinit var saveBridge: MelonDSSaveBridge
     private lateinit var playTimeTracker: MelonDSPlayTimeTracker
+
+    // Smart adaptation (slice 6): the config the emulator launched with
+    // (the tuner rebuilds it with a new resolution level) and the tuner
+    // itself, fed from the FPS loop. Null until the engine is set up.
+    private var baseEmulatorConfig: EmulatorConfiguration? = null
+    private var smartAdaptationTuner: SmartAdaptationTuner? = null
 
     private lateinit var surfaceView: GLSurfaceView
     private lateinit var renderer: MelonDSRenderer
@@ -192,14 +200,48 @@ class MelonDSGameActivity : ImmersiveActivity() {
                     withContext(Dispatchers.IO) {
                         MelonDSEngine.ensureSetup(applicationContext)
                         stage = "setupEmulator"
-                        MelonEmulator.setupEmulator(
+                        val prefs =
+                            SharedPreferencesHelper.getSharedPreferences(applicationContext)
+                        val useSoftwareRenderer =
+                            prefs.getBoolean(getString(R.string.pref_key_melonds_software_renderer), false)
+                        // Smart adaptation (slice 6): identify the game
+                        // from its ROM header, then resolve its starting
+                        // resolution/JIT from the seed database + the
+                        // learned profile. Best-effort — an unknown game
+                        // just gets the defaults, and a read failure never
+                        // blocks the launch.
+                        val gameCode =
+                            NdsGameCodeReader.readGameCode(applicationContext, Uri.parse(game.fileUri))
+                        val adaptation =
+                            SmartAdaptation.resolveInitial(applicationContext, prefs, gameCode)
+                        val emulatorConfig =
                             MelonDSEmulatorConfig.build(
                                 applicationContext,
-                                useSoftwareRenderer =
-                                    SharedPreferencesHelper
-                                        .getSharedPreferences(applicationContext)
-                                        .getBoolean(getString(R.string.pref_key_melonds_software_renderer), false),
-                            ),
+                                useSoftwareRenderer = useSoftwareRenderer,
+                                internalResolutionScaling = adaptation.startResolution,
+                                useJit = adaptation.useJit,
+                            )
+                        baseEmulatorConfig = emulatorConfig
+                        // The presentation filter's texel size must match
+                        // the level the game actually starts at (a seed
+                        // game may start at 2x, not the 3x default the
+                        // activity set in onCreate).
+                        renderer.internalResolutionScale =
+                            if (useSoftwareRenderer) 1 else adaptation.startResolution
+                        smartAdaptationTuner =
+                            SmartAdaptationTuner(
+                                gameCode = gameCode,
+                                prefs = prefs,
+                                targetResolution = adaptation.targetResolution,
+                                startResolution = adaptation.startResolution,
+                                isSoftwareRenderer = useSoftwareRenderer,
+                                onResolutionChanged = { newLevel -> applyAdaptedResolution(newLevel) },
+                                onFirstAdaptation = { newLevel ->
+                                    displayToast("智能适配已调至 ${newLevel}x", android.widget.Toast.LENGTH_SHORT)
+                                },
+                            )
+                        MelonEmulator.setupEmulator(
+                            emulatorConfig,
                             assets,
                             null,
                             NoOpRetroAchievementsCallback,
@@ -267,6 +309,35 @@ class MelonDSGameActivity : ImmersiveActivity() {
             val engineCheats = MelonDSCheatsAdapter.toEngineCheats(cheatsManager.getCheats(game.id))
             MelonEmulator.setupCheats(engineCheats)
         }.onFailure { Timber.e(it, "Failed to apply cheats to the melonDS engine") }
+    }
+
+    /**
+     * Applies a smart-adaptation resolution step at runtime (slice 6).
+     *
+     * The native layer picks the new renderer settings up on the next
+     * frame (`GPU::SetRenderSettings`), so no restart is needed — but the
+     * presentation filter's texel size must follow here, or it would keep
+     * sampling at the old scale. Runs on the main thread; the JNI call
+     * only flips config values and a dirty flag.
+     */
+    private fun applyAdaptedResolution(newResolution: Int) {
+        val base = baseEmulatorConfig ?: return
+        val rendererConfig = base.rendererConfiguration
+        val newConfig =
+            base.copy(
+                rendererConfiguration =
+                    RendererConfiguration(
+                        renderer = rendererConfig.renderer,
+                        videoFiltering = rendererConfig.videoFiltering,
+                        threadedRendering = rendererConfig.threadedRendering,
+                        internalResolutionScaling = newResolution,
+                    ),
+            )
+        baseEmulatorConfig = newConfig
+        runCatching {
+            MelonEmulator.updateEmulatorConfiguration(newConfig)
+            renderer.internalResolutionScale = newResolution
+        }.onFailure { Timber.e(it, "Smart adaptation: failed to apply ${newResolution}x") }
     }
 
     private fun failAndExit(detail: String? = null) {
@@ -546,6 +617,13 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 // the renderer may have discarded and read 60 during visible
                 // outdoor stutter in the #48 test.
                 fpsTextState.value = "显示 ${renderer.presentedFps} · 引擎 ${MelonEmulator.getFPS()} FPS"
+                // Smart adaptation (slice 6): one presented-FPS sample per
+                // second. No tuning while paused, in the menu or
+                // fast-forwarding — those samples would fake headroom.
+                smartAdaptationTuner?.onFpsSample(
+                    presentedFps = renderer.presentedFps,
+                    canTune = !emulationPaused && !menuOpen && !fastForwardState.value,
+                )
                 delay(1000)
             }
         }

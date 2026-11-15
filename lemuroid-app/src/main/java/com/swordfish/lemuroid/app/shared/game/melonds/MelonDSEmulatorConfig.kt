@@ -41,9 +41,19 @@ object MelonDSEmulatorConfig {
      */
     const val INTERNAL_RESOLUTION_SCALING = 3
 
+    /**
+     * Builds the [EmulatorConfiguration] for one game.
+     *
+     * [internalResolutionScaling] and [useJit] are per-game: slice 6
+     * (smart adaptation) resolves them from the seed database + the
+     * learned profile before launch. Defaults keep the previous
+     * behaviour (3x, JIT on 64-bit) for callers that do not adapt.
+     */
     fun build(
         context: Context,
         useSoftwareRenderer: Boolean = false,
+        internalResolutionScaling: Int = INTERNAL_RESOLUTION_SCALING,
+        useJit: Boolean = Build.SUPPORTED_64_BIT_ABIS.isNotEmpty(),
     ): EmulatorConfiguration {
         return EmulatorConfiguration(
             useCustomBios = false,
@@ -60,7 +70,7 @@ object MelonDSEmulatorConfig {
             rewindEnabled = false,
             rewindPeriodSeconds = 10,
             rewindWindowSeconds = 60,
-            useJit = Build.SUPPORTED_64_BIT_ABIS.isNotEmpty(),
+            useJit = useJit,
             consoleType = ConsoleType.DS,
             soundEnabled = true,
             audioInterpolation = AudioInterpolation.NONE,
@@ -109,7 +119,13 @@ object MelonDSEmulatorConfig {
                     // and it is now implemented in MelonDSRenderer (5-tap
                     // vertical low-pass on the top screen only, texel size
                     // derived from the effective compositor scale).
-                    internalResolutionScaling = INTERNAL_RESOLUTION_SCALING,
+                    // Slice 6: the value is per-game now (seed database +
+                    // learned profile); the smart-adaptation tuner may step
+                    // it down/up at runtime through
+                    // updateEmulatorConfiguration, so the activity — not
+                    // this constant — owns the live value once the game
+                    // starts.
+                    internalResolutionScaling = internalResolutionScaling,
                 ),
         )
     }

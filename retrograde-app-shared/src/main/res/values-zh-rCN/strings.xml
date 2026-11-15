@@ -123,6 +123,4 @@
     <string name="value_handy_rot_none">0度</string>
     <string name="value_handy_rot_90">90度</string>
     <string name="value_handy_rot_270">270度</string>
-    <string name="game_system_title_dreamcast">世嘉 Dreamcast</string>
-    <string name="game_system_abbr_dreamcast">DC</string>
 </resources>
