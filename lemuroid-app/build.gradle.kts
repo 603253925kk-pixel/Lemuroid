@@ -8,6 +8,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.zip.ZipInputStream
+
 // Fusion batch 1: Flycast / Azahar / SameBoy are prebuilt libretro cores
 // downloaded from the buildbot at build time (see downloadFusionCores
 // below) and bundled as jniLibs. They cannot travel through the git
@@ -161,7 +166,7 @@ tasks.register("downloadFusionCores") {
         // Fails the build unless every PT_LOAD segment of the .so is
         // 16 KB aligned. Same check the local tooling uses (verified
         // against the 2026-11-15 nightly downloads).
-        fun checkElf16kAlignment(soFile: java.io.File) {
+        fun checkElf16kAlignment(soFile: File) {
             val bytes = soFile.readBytes()
             if (bytes.size < 64) {
                 throw org.gradle.api.GradleException("${soFile.name}: too small to be an ELF file")
@@ -216,11 +221,11 @@ tasks.register("downloadFusionCores") {
             abi: String,
             minSizeBytes: Long,
             required: Boolean,
-            outDir: java.io.File,
+            outDir: File,
         ) {
             val url =
-                java.net.URL("https://buildbot.libretro.com/nightly/android/latest/$abi/$zipName")
-            val conn = url.openConnection() as java.net.HttpURLConnection
+                URL("https://buildbot.libretro.com/nightly/android/latest/$abi/$zipName")
+            val conn = url.openConnection() as HttpURLConnection
             conn.setRequestProperty("User-Agent", "Lemuroid-FusionCores/1.0")
             conn.connectTimeout = 30_000
             conn.readTimeout = 180_000
@@ -233,7 +238,7 @@ tasks.register("downloadFusionCores") {
                     println("$msg, skipping")
                     return
                 }
-                val zipFile = java.io.File.createTempFile("fusion-core-", ".zip")
+                val zipFile = File.createTempFile("fusion-core-", ".zip")
                 try {
                     conn.inputStream.use { input ->
                         zipFile.outputStream().use { output -> input.copyTo(output) }
@@ -244,10 +249,10 @@ tasks.register("downloadFusionCores") {
                                 "looks truncated",
                         )
                     }
-                    val destDir = java.io.File(outDir, abi)
-                    val destFile = java.io.File(destDir, targetName)
+                    val destDir = File(outDir, abi)
+                    val destFile = File(destDir, targetName)
                     var found = false
-                    java.util.zip.ZipInputStream(zipFile.inputStream().buffered()).use { zin ->
+                    ZipInputStream(zipFile.inputStream().buffered()).use { zin ->
                         var entry = zin.nextEntry
                         while (entry != null) {
                             if (entry.name == innerName) {
