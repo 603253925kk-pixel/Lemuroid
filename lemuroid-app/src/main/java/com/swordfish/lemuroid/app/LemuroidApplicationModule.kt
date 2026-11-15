@@ -53,6 +53,7 @@ import com.swordfish.lemuroid.lib.game.GameLoader
 import com.swordfish.lemuroid.lib.injection.PerActivity
 import com.swordfish.lemuroid.lib.injection.PerApp
 import com.swordfish.lemuroid.lib.library.CheatsManager
+import com.swordfish.lemuroid.lib.library.covers.CoverLibraryManager
 import com.swordfish.lemuroid.lib.library.covers.CustomCoverManager
 import com.swordfish.lemuroid.lib.library.LemuroidLibrary
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
@@ -142,6 +143,14 @@ abstract class LemuroidApplicationModule {
         @Provides
         @PerApp
         @JvmStatic
+        fun coverLibraryManager(
+            context: Context,
+            retrogradeDb: RetrogradeDatabase,
+        ) = CoverLibraryManager(context, retrogradeDb)
+
+        @Provides
+        @PerApp
+        @JvmStatic
         fun libretroDBManager(app: LemuroidApplication) = LibretroDBManager(app)
 
         @Provides
@@ -156,6 +165,7 @@ abstract class LemuroidApplicationModule {
                     Migrations.VERSION_9_10,
                     Migrations.VERSION_10_11,
                     Migrations.VERSION_11_12,
+                    Migrations.VERSION_12_13,
                 )
                 .fallbackToDestructiveMigration()
                 .build()

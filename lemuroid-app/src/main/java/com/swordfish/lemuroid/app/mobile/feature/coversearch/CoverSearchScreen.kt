@@ -11,9 +11,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -108,6 +111,33 @@ fun CoverSearchScreen(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 8.dp),
             )
+        }
+
+        if (state.libraryCovers.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.cover_library_title),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                items(state.libraryCovers, key = { it.id }) { item ->
+                    AsyncImage(
+                        model = viewModel.libraryCoverUri(item),
+                        contentDescription = item.title,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .width(72.dp)
+                                .aspectRatio(3f / 4f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.selectLibraryCover(item) },
+                    )
+                }
+            }
         }
 
         Box(

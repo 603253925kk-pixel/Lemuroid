@@ -22,16 +22,18 @@ package com.swordfish.lemuroid.lib.library.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.swordfish.lemuroid.lib.library.db.dao.CheatDao
+import com.swordfish.lemuroid.lib.library.db.dao.CoverLibraryDao
 import com.swordfish.lemuroid.lib.library.db.dao.DataFileDao
 import com.swordfish.lemuroid.lib.library.db.dao.GameDao
 import com.swordfish.lemuroid.lib.library.db.dao.GameSearchDao
 import com.swordfish.lemuroid.lib.library.db.entity.Cheat
+import com.swordfish.lemuroid.lib.library.db.entity.CoverLibraryItem
 import com.swordfish.lemuroid.lib.library.db.entity.DataFile
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 
 @Database(
-    entities = [Game::class, DataFile::class, Cheat::class],
-    version = 12,
+    entities = [Game::class, DataFile::class, Cheat::class, CoverLibraryItem::class],
+    version = 13,
     exportSchema = true,
 )
 abstract class RetrogradeDatabase : RoomDatabase() {
@@ -44,6 +46,8 @@ abstract class RetrogradeDatabase : RoomDatabase() {
     abstract fun dataFileDao(): DataFileDao
 
     abstract fun cheatDao(): CheatDao
+
+    abstract fun coverLibraryDao(): CoverLibraryDao
 
     fun gameSearchDao() = GameSearchDao(gameSearchDaoInternal())
 

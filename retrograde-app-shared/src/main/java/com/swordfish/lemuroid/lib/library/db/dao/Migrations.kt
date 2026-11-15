@@ -93,6 +93,41 @@ object Migrations {
             }
         }
 
+    val VERSION_12_13: Migration =
+        object : Migration(12, 13) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `cover_library`(
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `fileName` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `sourceUrl` TEXT NOT NULL,
+                        `systemId` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL)
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_cover_library_id` ON `cover_library` (`id`)
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_cover_library_sourceUrl` ON `cover_library` (`sourceUrl`)
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_cover_library_createdAt` ON `cover_library` (`createdAt`)
+                    """.trimIndent(),
+                )
+            }
+        }
+
     private fun migrateGamesTableToVersion10(
         database: SupportSQLiteDatabase,
     ) {

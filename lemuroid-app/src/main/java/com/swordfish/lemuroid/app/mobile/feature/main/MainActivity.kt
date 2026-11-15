@@ -67,6 +67,7 @@ import com.swordfish.lemuroid.lib.android.RetrogradeComponentActivity
 import com.swordfish.lemuroid.lib.bios.BiosManager
 import com.swordfish.lemuroid.lib.core.CoresSelection
 import com.swordfish.lemuroid.lib.injection.PerActivity
+import com.swordfish.lemuroid.lib.library.covers.CoverLibraryManager
 import com.swordfish.lemuroid.lib.library.covers.CustomCoverManager
 import com.swordfish.lemuroid.lib.library.MetaSystemID
 import com.swordfish.lemuroid.lib.library.SystemID
@@ -92,6 +93,9 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
 
     @Inject
     lateinit var retrogradeDb: RetrogradeDatabase
+
+    @Inject
+    lateinit var coverLibraryManager: CoverLibraryManager
 
     @Inject
     lateinit var gameInteractor: GameInteractor
@@ -302,6 +306,7 @@ class MainActivity : RetrogradeComponentActivity(), BusyActivity {
                                             applicationContext,
                                             retrogradeDb,
                                             gameId!!,
+                                            coverLibraryManager,
                                         ),
                                 ),
                             onSetCustomCoverUri = { game, uri ->

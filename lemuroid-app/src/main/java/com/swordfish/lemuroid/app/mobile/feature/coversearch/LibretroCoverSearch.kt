@@ -110,6 +110,8 @@ private val ARTICLES = setOf("the", "a", "an")
         val fullImageUrl: String = imageUrl,
         /** Where this candidate came from, e.g. the thumbnails library or a web image search. */
         val sourceLabel: String = "封面库",
+        /** Referer to send when downloading, e.g. the search engine's page. */
+        val referer: String? = null,
     )
 
     /**
@@ -248,6 +250,14 @@ private val ARTICLES = setOf("the", "a", "an")
      * Downloads the original boxart, downscales it if needed and writes it as a
      * JPEG into [targetFile]. The file can then go through the exact same
      * set-custom-cover path used for images picked from the gallery.
+     *
+     * Web image search results are unreliable one by one — the original host
+     * often 403s hotlinks (no Referer), serves an HTML error page with a 200
+     * status, or is simply dead — which is why picked covers used to fail
+     * with "apply failed" even though the preview rendered fine. So this
+     * tries, in order, the original URL and then the search engine's preview
+     * URL (served by the engine's own CDN, far more reliable), each with the
+     * source's Referer, and only throws when every attempt fails.
      */
     suspend fun downloadCoverAsJpegFile(
         client: OkHttpClient,
@@ -255,38 +265,75 @@ private val ARTICLES = setOf("the", "a", "an")
         targetFile: File,
     ): File =
         withContext(Dispatchers.IO) {
-            val request =
-                Request.Builder()
-                    .url(candidate.fullImageUrl)
-                    // Some image hosts refuse bare HTTP clients; a browser
-                    // user agent is enough for the cover sources we merge.
-                    .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                    )
-                    .build()
-            val bytes =
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw IOException("Cover download failed with code ${response.code}")
+            val attempts =
+                listOf(candidate.fullImageUrl, candidate.imageUrl)
+                    .filter { it.isNotBlank() }
+                    .distinct()
+            var lastError: IOException? = null
+            for (attemptUrl in attempts) {
+                runCatching {
+                    downloadOneImage(client, attemptUrl, candidate.referer, targetFile)
+                }.onSuccess { return@withContext it }
+                    .onFailure { error ->
+                        Timber.w(error, "Cover download attempt failed: $attemptUrl")
+                        lastError = error as? IOException ?: IOException(error.message, error)
                     }
-                    response.body?.bytes() ?: throw IOException("Empty cover response")
-                }
-
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                ?: throw IOException("Downloaded cover is not a readable image")
-            val scaled = scaleDown(bitmap, MAX_COVER_DIMENSION)
-
-            targetFile.parentFile?.mkdirs()
-            FileOutputStream(targetFile).use { output ->
-                if (!scaled.compress(Bitmap.CompressFormat.JPEG, COVER_JPEG_QUALITY, output)) {
-                    throw IOException("Failed to encode cover as JPEG")
-                }
             }
-            Timber.d("Saved downloaded cover to ${targetFile.absolutePath}")
-            targetFile
+            throw lastError ?: IOException("No cover URL to download")
         }
+
+    private fun downloadOneImage(
+        client: OkHttpClient,
+        url: String,
+        referer: String?,
+        targetFile: File,
+    ): File {
+        val request =
+            Request.Builder()
+                .url(url)
+                // Some image hosts refuse bare HTTP clients; a browser
+                // user agent is enough for the cover sources we merge.
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                )
+                .apply {
+                    // Hotlink protection on many Chinese image hosts keys
+                    // off the Referer; without it the original URL 403s.
+                    if (!referer.isNullOrBlank()) {
+                        header("Referer", referer)
+                    }
+                }
+                .build()
+        val bytes =
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("Cover download failed with code ${response.code}")
+                }
+                // Anti-hotlink hosts sometimes answer an HTML error page
+                // with a 200 status; that is not an image, whatever the
+                // status code says — fail fast instead of decoding it.
+                val contentType = response.header("Content-Type")
+                if (contentType != null && !contentType.startsWith("image/")) {
+                    throw IOException("Cover URL returned $contentType, not an image")
+                }
+                response.body?.bytes() ?: throw IOException("Empty cover response")
+            }
+
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IOException("Downloaded cover is not a readable image")
+        val scaled = scaleDown(bitmap, MAX_COVER_DIMENSION)
+
+        targetFile.parentFile?.mkdirs()
+        FileOutputStream(targetFile).use { output ->
+            if (!scaled.compress(Bitmap.CompressFormat.JPEG, COVER_JPEG_QUALITY, output)) {
+                throw IOException("Failed to encode cover as JPEG")
+            }
+        }
+        Timber.d("Saved downloaded cover to ${targetFile.absolutePath}")
+        return targetFile
+    }
 
     private fun scaleDown(
         bitmap: Bitmap,

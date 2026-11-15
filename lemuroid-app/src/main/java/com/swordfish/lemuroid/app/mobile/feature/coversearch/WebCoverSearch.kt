@@ -37,6 +37,7 @@ object WebCoverSearch {
     suspend fun searchBaidu(
         client: OkHttpClient,
         query: String,
+        systemToken: String = "",
     ): List<CoverCandidate> =
         withContext(Dispatchers.IO) {
             val url =
@@ -45,7 +46,12 @@ object WebCoverSearch {
                     .addQueryParameter("tn", "resultjson_com")
                     .addQueryParameter("ie", "utf-8")
                     .addQueryParameter("oe", "utf-8")
-                    .addQueryParameter("word", "$query 封面")
+                    // The system token ("NDS", "GBA", ...) keeps generic
+                    // titles from matching posters, books and wallpapers.
+                    .addQueryParameter(
+                        "word",
+                        listOf(query, systemToken, "封面").filter { it.isNotBlank() }.joinToString(" "),
+                    )
                     .addQueryParameter("pn", "0")
                     .addQueryParameter("rn", "30")
                     .build()
@@ -84,6 +90,7 @@ object WebCoverSearch {
                         score = 0.0,
                         fullImageUrl = fullImageUrl,
                         sourceLabel = "百度图片",
+                        referer = "https://image.baidu.com/",
                     )
                 if (candidates.size >= MAX_RESULTS_PER_SOURCE) {
                     break
@@ -96,9 +103,15 @@ object WebCoverSearch {
     suspend fun searchBing(
         client: OkHttpClient,
         query: String,
+        systemToken: String = "",
     ): List<CoverCandidate> =
         withContext(Dispatchers.IO) {
-            val searchQuery = if (CJK_REGEX.containsMatchIn(query)) "$query 封面" else "$query boxart cover"
+            val searchQuery =
+                if (CJK_REGEX.containsMatchIn(query)) {
+                    listOf(query, systemToken, "封面").filter { it.isNotBlank() }.joinToString(" ")
+                } else {
+                    listOf(query, systemToken, "boxart cover").filter { it.isNotBlank() }.joinToString(" ")
+                }
             val url =
                 "https://www.bing.com/images/search".toHttpUrl()
                     .newBuilder()
@@ -131,6 +144,7 @@ object WebCoverSearch {
                     score = 0.0,
                     fullImageUrl = originalUrl,
                     sourceLabel = "Bing 图片",
+                    referer = "https://www.bing.com/",
                 )
             }.take(MAX_RESULTS_PER_SOURCE)
         }

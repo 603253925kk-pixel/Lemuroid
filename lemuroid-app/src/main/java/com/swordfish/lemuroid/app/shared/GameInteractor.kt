@@ -15,6 +15,7 @@ import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class GameInteractor(
     private val activity: BusyActivity,
@@ -82,8 +83,10 @@ class GameInteractor(
      */
     fun onSetCustomCoverUri(game: Game, sourceUri: String) {
         GlobalScope.launch {
-            val localUri = customCoverManager.importCover(game.id, Uri.parse(sourceUri))
-            retrogradeDb.gameDao().update(game.copy(customCoverUri = localUri))
+            runCatching {
+                val localUri = customCoverManager.importCover(game.id, Uri.parse(sourceUri))
+                retrogradeDb.gameDao().update(game.copy(customCoverUri = localUri))
+            }.onFailure { Timber.e(it, "Failed to set custom cover for game ${game.id}") }
         }
     }
 

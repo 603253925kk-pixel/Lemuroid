@@ -28,12 +28,15 @@ class CustomCoverManager(private val appContext: Context) {
 
     /**
      * Resolves a file extension from the source URI's MIME type.
-     * Falls back to "png" if the type can't be determined.
+     * Falls back to the extension in the URI path (a file:// URI has no
+     * MIME type, so the temp JPEG from cover search would otherwise be
+     * stored as .png), then to "png" if that is unknown too.
      */
     private fun extensionForUri(sourceUri: Uri): String {
         val mimeType = appContext.contentResolver.getType(sourceUri)
         val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
-        return ext ?: "png"
+        return ext
+            ?: MimeTypeMap.getFileExtensionFromUrl(sourceUri.toString()).ifBlank { "png" }
     }
 
     /** Build the cover file path for a given game id and extension. */
