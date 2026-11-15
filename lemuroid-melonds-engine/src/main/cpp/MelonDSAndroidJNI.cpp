@@ -81,6 +81,11 @@ Java_me_magnum_melonds_MelonEmulator_setupCheats(JNIEnv* env, jobject thiz, jobj
 {
     jsize cheatCount = env->GetArrayLength(cheats);
     if (cheatCount < 1) {
+        // No cheats enabled: clear the active list instead of leaving the
+        // previous cheats running. The old code returned here, so turning
+        // off the last enabled cheat could never take effect mid-session;
+        // setCodeList with an empty list clears the AR code file.
+        MelonDSAndroid::setCodeList(std::list<MelonDSAndroid::Cheat>());
         return;
     }
 

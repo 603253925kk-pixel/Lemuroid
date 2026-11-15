@@ -20,6 +20,7 @@ import com.swordfish.lemuroid.app.shared.ImmersiveActivity
 import com.swordfish.lemuroid.app.shared.coreoptions.LemuroidCoreOption
 import com.swordfish.lemuroid.app.shared.game.BaseGameActivity
 import com.swordfish.lemuroid.common.displayToast
+import com.swordfish.lemuroid.lib.library.CheatsManager
 import com.swordfish.lemuroid.lib.library.SystemCoreConfig
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.preferences.SharedPreferencesHelper
@@ -65,6 +66,9 @@ class MelonDSGameActivity : ImmersiveActivity() {
 
     @Inject
     lateinit var melonDSStatesManager: MelonDSStatesManager
+
+    @Inject
+    lateinit var cheatsManager: CheatsManager
 
     private lateinit var game: Game
     private lateinit var systemCoreConfig: SystemCoreConfig
@@ -208,13 +212,21 @@ class MelonDSGameActivity : ImmersiveActivity() {
                         )
                         stage = "loadRom"
                         val sramFile = saveBridge.migrateToEngine(game)
-                        MelonEmulator.loadRom(
-                            Uri.parse(game.fileUri),
-                            Uri.fromFile(sramFile),
-                            MelonEmulator.GbaSlotType.NONE,
-                            null,
-                            null,
-                        )
+                        val loadResultValue =
+                            MelonEmulator.loadRom(
+                                Uri.parse(game.fileUri),
+                                Uri.fromFile(sramFile),
+                                MelonEmulator.GbaSlotType.NONE,
+                                null,
+                                null,
+                            )
+                        stage = "applyCheats"
+                        syncCheatsToEngine()
+                        // The block's value is the ROM load result (the fold
+                        // below reads isTerminal off it); the cheat sync is
+                        // best-effort and never throws, so it must not become
+                        // the block's value.
+                        loadResultValue
                     }
                 }
             loadResult.fold(
@@ -240,6 +252,21 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 },
             )
         }
+    }
+
+    /**
+     * Pushes the game's enabled cheats to the engine (M3). This is a full
+     * replace of the engine's AR code list — disabled cheats are omitted
+     * (the native layer hardcodes every passed cheat to enabled), and an
+     * empty list clears the codes, so turning off the last cheat works.
+     * Best-effort on purpose: a cheat problem must never fail the launch,
+     * so any error is logged and swallowed here.
+     */
+    private suspend fun syncCheatsToEngine() {
+        runCatching {
+            val engineCheats = MelonDSCheatsAdapter.toEngineCheats(cheatsManager.getCheats(game.id))
+            MelonEmulator.setupCheats(engineCheats)
+        }.onFailure { Timber.e(it, "Failed to apply cheats to the melonDS engine") }
     }
 
     private fun failAndExit(detail: String? = null) {
@@ -331,6 +358,15 @@ class MelonDSGameActivity : ImmersiveActivity() {
             resumeAfterMenu()
             return
         }
+        if (data.getBooleanExtra(GameMenuContract.RESULT_CHEATS_CHANGED, false)) {
+            // The menu edits the shared cheat database; re-push the full
+            // enabled set to the engine. Fire-and-forget: the engine is
+            // paused while the menu is up, and the sync is a full replace
+            // (same live-toggle pattern as upstream's cheat UI).
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) { syncCheatsToEngine() }
+            }
+        }
         when {
             data.getBooleanExtra(GameMenuContract.RESULT_QUIT, false) -> {
                 exitGame()
@@ -380,8 +416,6 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 fastForwardState.value = enabled
                 MelonEmulator.setFastForwardEnabled(enabled)
             }
-            // RESULT_CHEATS_CHANGED: cheats are edited in the shell database
-            // by the menu and applied by the M3 adapter; nothing to do here.
         }
         resumeAfterMenu()
     }
