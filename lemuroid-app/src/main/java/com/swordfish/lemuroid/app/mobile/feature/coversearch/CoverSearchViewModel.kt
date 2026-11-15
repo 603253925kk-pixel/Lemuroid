@@ -15,6 +15,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import java.io.File
@@ -57,6 +60,9 @@ class CoverSearchViewModel(
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            // Baidu's image API answers nothing without a BAIDUID cookie,
+            // so the client keeps cookies in memory (see InMemoryCookieJar).
+            .cookieJar(InMemoryCookieJar())
             .build()
 
     /** Directory index of the game's system, downloaded once and re-ranked locally. */
@@ -194,7 +200,7 @@ class CoverSearchViewModel(
      * Queries all cover sources in parallel and merges their candidates:
      * the libretro thumbnails library first (authoritative boxart, ranked
      * locally against the cached directory index), then web image search
-     * (Baidu, then Bing), which is where Chinese-titled and modified ROMs
+     * (Baidu, Bing and 360), which is where Chinese-titled and modified ROMs
      * can be found at all. A source that fails only removes itself; the
      * error state is shown solely when every source failed.
      */
@@ -224,8 +230,9 @@ class CoverSearchViewModel(
                     }
                 val baidu = async { runCatching { WebCoverSearch.searchBaidu(httpClient, query, systemToken) } }
                 val bing = async { runCatching { WebCoverSearch.searchBing(httpClient, query, systemToken) } }
+                val so360 = async { runCatching { WebCoverSearch.search360(httpClient, query, systemToken) } }
 
-                listOf(libretro.await(), baidu.await(), bing.await())
+                listOf(libretro.await(), baidu.await(), bing.await(), so360.await())
                     .onEach { result ->
                         result
                             .onSuccess { anySourceSucceeded = true }
@@ -246,4 +253,29 @@ class CoverSearchViewModel(
     private companion object {
         const val MAX_TOTAL_RESULTS = 48
     }
+}
+
+/**
+ * Minimal in-memory cookie jar: just enough for Baidu's anti-spider check,
+ * which requires a BAIDUID cookie before its image API answers. Cookies live
+ * only as long as the cover-search client does; nothing is persisted.
+ * Session cookies (expiresAt == Long.MIN_VALUE) are kept, since OkHttp marks
+ * them non-persistent rather than expired.
+ */
+private class InMemoryCookieJar : CookieJar {
+    private val store = mutableMapOf<String, MutableList<Cookie>>()
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        if (cookies.isEmpty()) {
+            return
+        }
+        val existing = store.getOrPut(url.host) { mutableListOf() }
+        for (cookie in cookies) {
+            existing.removeAll { it.name == cookie.name }
+            existing += cookie
+        }
+    }
+
+    override fun loadForRequest(url: HttpUrl): List<Cookie> =
+        store[url.host].orEmpty().filter { !it.persistent || it.expiresAt > System.currentTimeMillis() }
 }

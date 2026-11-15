@@ -19,7 +19,9 @@ import java.io.IOException
  * "起源心金"). Image search engines index the open web — including Chinese
  * ROM sites and forums — which is where those covers actually live. Every
  * provider here is keyless plain HTTP(S), and each one fails independently:
- * the view model merges whatever came back.
+ * the view model merges whatever came back. The engines are Baidu (needs a
+ * cookie warm-up or its anti-spider check answers nothing), Bing (its result
+ * JSON arrives HTML-escaped) and 360 image search (plain JSON, no cookie).
  */
 object WebCoverSearch {
     private const val USER_AGENT =
@@ -40,6 +42,20 @@ object WebCoverSearch {
         systemToken: String = "",
     ): List<CoverCandidate> =
         withContext(Dispatchers.IO) {
+            // Baidu's anti-spider check rejects cookie-less requests
+            // ("Forbid spider access"), so warm up the session first:
+            // the GET drops a BAIDUID cookie into the client's jar and
+            // the acjson call below then carries it. Best-effort: if the
+            // warm-up itself fails, the search still runs.
+            runCatching {
+                val warmUp =
+                    Request.Builder()
+                        .url("https://image.baidu.com/")
+                        .header("User-Agent", USER_AGENT)
+                        .header("Referer", "https://image.baidu.com/")
+                        .build()
+                client.newCall(warmUp).execute().use { }
+            }
             val url =
                 "https://image.baidu.com/search/acjson".toHttpUrl()
                     .newBuilder()
@@ -76,7 +92,12 @@ object WebCoverSearch {
                 val thumbUrl = item.optString("thumbURL")
                 val middleUrl = item.optString("middleURL")
                 val originalUrl = item.optString("objURL")
-                val fullImageUrl = originalUrl.ifBlank { middleUrl }.ifBlank { thumbUrl }
+                // objURL is now an ipprf_ encrypted token, not a real
+                // address; only trust it when it is an http(s) URL and
+                // otherwise fall back to the real CDN addresses.
+                val fullImageUrl =
+                    originalUrl.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+                        ?: middleUrl.ifBlank { thumbUrl }
                 val previewUrl = middleUrl.ifBlank { thumbUrl }.ifBlank { fullImageUrl }
                 if (fullImageUrl.isBlank() || previewUrl.isBlank()) {
                     continue
@@ -132,9 +153,14 @@ object WebCoverSearch {
                     response.body?.string() ?: throw IOException("Empty Bing image search response")
                 }
 
-            val originals = BING_MURL_REGEX.findAll(html).map { unescapeJson(it.groupValues[1]) }.toList()
-            val previews = BING_TURL_REGEX.findAll(html).map { unescapeJson(it.groupValues[1]) }.toList()
-            val titles = BING_TITLE_REGEX.findAll(html).map { unescapeJson(it.groupValues[1]) }.toList()
+            // Bing now HTML-escapes the quotes inside its result JSON
+            // (&quot;murl&quot;:&quot;...&quot;), which the regexes below
+            // cannot match; decode the entities first. turl values also
+            // carry &amp; that must become &.
+            val decodedHtml = html.replace("&quot;", "\"").replace("&amp;", "&")
+            val originals = BING_MURL_REGEX.findAll(decodedHtml).map { unescapeJson(it.groupValues[1]) }.toList()
+            val previews = BING_TURL_REGEX.findAll(decodedHtml).map { unescapeJson(it.groupValues[1]) }.toList()
+            val titles = BING_TITLE_REGEX.findAll(decodedHtml).map { unescapeJson(it.groupValues[1]) }.toList()
 
             originals.mapIndexed { index, originalUrl ->
                 CoverCandidate(
@@ -147,6 +173,65 @@ object WebCoverSearch {
                     referer = "https://www.bing.com/",
                 )
             }.take(MAX_RESULTS_PER_SOURCE)
+        }
+
+    /** 360 image search: keyless JSON API, strongest for Chinese titles. */
+    suspend fun search360(
+        client: OkHttpClient,
+        query: String,
+        systemToken: String = "",
+    ): List<CoverCandidate> =
+        withContext(Dispatchers.IO) {
+            val url =
+                "https://image.so.com/j".toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter(
+                        "q",
+                        listOf(query, systemToken, "封面").filter { it.isNotBlank() }.joinToString(" "),
+                    )
+                    .addQueryParameter("src", "srp")
+                    .addQueryParameter("sn", "0")
+                    .addQueryParameter("pn", "30")
+                    .build()
+            val request =
+                Request.Builder()
+                    .url(url)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Referer", "https://image.so.com/")
+                    .build()
+            val body =
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw IOException("360 image search failed with code ${response.code}")
+                    }
+                    response.body?.string() ?: throw IOException("Empty 360 image search response")
+                }
+
+            val list = JSONObject(body).optJSONArray("list") ?: return@withContext emptyList()
+            val candidates = mutableListOf<CoverCandidate>()
+            for (index in 0 until list.length()) {
+                val item = list.optJSONObject(index) ?: continue
+                val fullImageUrl = item.optString("img")
+                val previewUrl = item.optString("thumb").ifBlank { fullImageUrl }
+                if (fullImageUrl.isBlank() || previewUrl.isBlank()) {
+                    continue
+                }
+                val title = item.optString("title").ifBlank { query }
+                candidates +=
+                    CoverCandidate(
+                        fileName = "web-360-$index-${fullImageUrl.hashCode()}",
+                        displayName = title,
+                        imageUrl = previewUrl,
+                        score = 0.0,
+                        fullImageUrl = fullImageUrl,
+                        sourceLabel = "360 图片",
+                        referer = "https://image.so.com/",
+                    )
+                if (candidates.size >= MAX_RESULTS_PER_SOURCE) {
+                    break
+                }
+            }
+            candidates
         }
 
     /** Undoes the minimal JSON string escaping used inside Bing's result blobs. */
