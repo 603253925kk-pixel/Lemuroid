@@ -1,5 +1,21 @@
 <resources>
-    <string name="title_home">Home</string>
+    <string name="title_home">Game Library</string>
+    <string name="game_library_title">Game Library</string>
+    <string name="home_section_recently_played">Recently played</string>
+    <string name="home_section_all_games">All games</string>
+    <string name="home_recent_continue">Continue</string>
+    <string name="home_recent_continue_slot">Continue · Save #%1$d</string>
+    <string name="game_detail_title">Game details</string>
+    <string name="game_detail_play">Play</string>
+    <string name="game_detail_play_time">Play time</string>
+    <string name="game_detail_saves">Saves</string>
+    <string name="game_detail_info">Game info</string>
+    <string name="game_detail_platform">Platform</string>
+    <string name="game_detail_developer">Developer</string>
+    <string name="game_detail_no_play_time">Not played yet</string>
+    <string name="game_detail_no_saves">No saves</string>
+    <string name="game_detail_slot_saves">%1$d slot saves</string>
+    <string name="game_detail_auto_save">Auto-save</string>
     <string name="title_search">Search</string>
     <string name="title_systems">Systems</string>
     <string name="title_games">Games</string>

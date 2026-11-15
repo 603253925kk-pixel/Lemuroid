@@ -76,29 +76,30 @@ object MelonDSEmulatorConfig {
                     renderer = if (useSoftwareRenderer) VideoRenderer.SOFTWARE else VideoRenderer.OPENGL,
                     videoFiltering = VideoFiltering.NONE,
                     threadedRendering = false,
-                    // 3D internal resolution 2x (was 1x): the #52 device test
-                    // showed evenly spaced thin dark horizontal bands on the
-                    // top (3D) screen. Frame analysis of the user's recording
-                    // proved the bands already exist at native 256x192
-                    // resolution — a ~14-texel-row periodic structure whose
-                    // period varies with depth (perspective), i.e. the dark
-                    // edge rows of the game's own repeating ground/rock
-                    // textures, rendered 1:1 with nearest sampling and then
-                    // magnified 4.2x by the presentation layer. The Kotlin
-                    // UV split and GL_LINEAR presentation were verified
-                    // correct (texture is 256x386 = 192+2+192; the split
-                    // matches to <1e-4), so no sampling fix applies there.
-                    // Rendering the 3D layer at 2x samples those textures at
-                    // twice the rate and gives the compositor 2x subpixel
-                    // precision, which softens the tile-edge bands; Adreno
-                    // 750-class GPUs handle DS 3D at 2x trivially. The
-                    // software path is unaffected (it renders at 1x).
-                    // Uncertainty: the tile borders are real texture content,
-                    // so 2x softens but may not fully erase them — the user
-                    // still has to confirm on device; if lines persist, the
-                    // next lever is 3x or a presentation-side smoothing
-                    // filter, not another guess stacked here.
-                    internalResolutionScaling = 2,
+                    // 3D internal resolution 3x (was 1x, then 2x in #53): the #52
+                    // device test showed evenly spaced thin dark horizontal
+                    // bands on the top (3D) screen. Frame analysis of the
+                    // user's recording proved the bands already exist at
+                    // native 256x192 resolution — a ~14-texel-row periodic
+                    // structure whose period varies with depth (perspective),
+                    // i.e. the dark edge rows of the game's own repeating
+                    // ground/rock textures, rendered 1:1 with nearest
+                    // sampling and then magnified 4.2x by the presentation
+                    // layer. The Kotlin UV split and GL_LINEAR presentation
+                    // were verified correct (texture is 256x386 = 192+2+192;
+                    // the split matches to <1e-4), so no sampling fix
+                    // applies there. Rendering the 3D layer at 2x (#53)
+                    // softened the bands but the user still sees them on
+                    // device, so this goes to 3x (768x576): the compositor
+                    // gets 3x subpixel precision and the tile edges are
+                    // sampled at three times the rate. Adreno 750-class GPUs
+                    // handle DS 3D at 3x; the software path is unaffected
+                    // (it renders at 1x). Honest caveat: the tile borders
+                    // are real texture content, so 3x weakens them further
+                    // but may still not erase them completely — if lines
+                    // persist on device, the next lever is a
+                    // presentation-side smoothing filter, not a higher scale.
+                    internalResolutionScaling = 3,
                 ),
         )
     }

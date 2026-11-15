@@ -3,19 +3,14 @@ package com.swordfish.lemuroid.app.shared.game.melonds
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.os.Bundle
-import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.View
-import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.lifecycleScope
 import com.swordfish.lemuroid.R
 import com.swordfish.lemuroid.app.mobile.feature.game.GameService
@@ -26,6 +21,8 @@ import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.preferences.SharedPreferencesHelper
 import com.swordfish.lemuroid.lib.library.db.entity.Game
 import com.swordfish.lemuroid.lib.storage.DirectoriesManager
+import com.swordfish.touchinput.radial.layouts.shared.ComposeTouchLayouts
+import gg.padkit.inputevents.InputEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -67,7 +64,16 @@ class MelonDSGameActivity : ImmersiveActivity() {
 
     private lateinit var surfaceView: GLSurfaceView
     private lateinit var renderer: MelonDSRenderer
-    private lateinit var fpsLabel: TextView
+
+    // Compose state for the shell: the FPS readout (updated once a second)
+    // and the fast-forward toggle. Read inside setContent, so the shell
+    // recomposes when they change.
+    private val fpsTextState = mutableStateOf("")
+    private val fastForwardState = mutableStateOf(false)
+
+    // D-pad directions currently held from the PadKit deck, so direction
+    // changes can be diffed into individual press/release calls.
+    private val dpadPressed = mutableSetOf<Input>()
 
     private val screenshotBuffer: ByteBuffer =
         ByteBuffer.allocateDirect(SCREEN_WIDTH * SCREEN_HEIGHT * 4).order(ByteOrder.nativeOrder())
@@ -85,7 +91,6 @@ class MelonDSGameActivity : ImmersiveActivity() {
     private var lifecyclePaused = false
 
     private var touchscreenHeld = false
-    private var fastForwardEnabled = false
 
     @Volatile
     private var playTimeTrackingActive = false
@@ -114,20 +119,28 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 setOnTouchListener { _, event -> handleSurfaceTouch(event) }
             }
 
-        // Layout (M4): the v3.3 handheld shell hosts the surface and the
-        // controls deck — the GLSurfaceView goes inside GameViewportShellBox
-        // (sized exactly to the 2:3 viewport by the shell geometry) and the
-        // existing View deck sits on the shell's lower body. The previous
-        // plain LinearLayout version (surface box + bare deck on black) is
-        // what the user rejected on sight in the #48 test. The activity is
-        // portrait-locked (manifest), so the shell never has to survive a
-        // rotation-driven surface re-creation.
+        // Layout (M4, deck redone in #54): the v3.3 handheld shell hosts the
+        // surface and the v3.3 PadKit controls deck — the GLSurfaceView goes
+        // inside GameViewportShellBox (sized exactly to the 2:3 viewport by
+        // the shell geometry) and the MELONDS pads, fast-forward pill and FPS
+        // readout live in the shell's lower body. The previous plain
+        // LinearLayout version (surface box + bare deck on black) is what
+        // the user rejected on sight in the #48 test, and the flat View
+        // buttons that replaced it in M4 are what he rejected again after
+        // #53. The activity is portrait-locked (manifest), so the shell
+        // never has to survive a rotation-driven surface re-creation.
         setContentView(
             androidx.compose.ui.platform.ComposeView(this).apply {
                 setContent {
                     MelonDSGameShellContent(
                         surfaceView = surfaceView,
-                        controlsDeck = buildControlsDeck(),
+                        fpsText = fpsTextState.value,
+                        fastForwardEnabled = fastForwardState.value,
+                        onToggleFastForward = {
+                            fastForwardState.value = !fastForwardState.value
+                            MelonEmulator.setFastForwardEnabled(fastForwardState.value)
+                        },
+                        onPadInputEvent = ::handlePadInputEvent,
                     )
                 }
             },
@@ -338,174 +351,76 @@ class MelonDSGameActivity : ImmersiveActivity() {
                 // engine counter second, because it counts produced frames
                 // the renderer may have discarded and read 60 during visible
                 // outdoor stutter in the #48 test.
-                fpsLabel.text = "显示 ${renderer.presentedFps} · 引擎 ${MelonEmulator.getFPS()} FPS"
+                fpsTextState.value = "显示 ${renderer.presentedFps} · 引擎 ${MelonEmulator.getFPS()} FPS"
                 delay(1000)
             }
         }
     }
 
+    // ------------------------------------------------- PadKit deck input
+
     /**
-     * The controls deck below the screens: L/R and the FPS readout on the top
-     * row, D-pad and ABXY centered vertically on the left/right, and the
-     * SELECT/START/fast-forward/exit cluster along the bottom. Nothing in
-     * here overlaps the game screens.
+     * Maps the v3.3 PadKit deck's input events onto the engine. The game
+     * buttons use the same KeyEvent codes as physical gamepads (see
+     * [dispatchKeyEvent]); the deck-only buttons map to engine functions:
+     * mic (hold to blow), lid-close (hold to close the DS lid). The menu
+     * button is intentionally unbound for now: the new-engine path has no
+     * game menu yet, and silently exiting or freezing on it would be worse
+     * than a button that waits for the menu to exist (TODO: wire it when
+     * the new-engine game menu lands).
      */
-    private fun buildControlsDeck(): View {
-        val overlay = FrameLayout(this).apply { isClickable = false }
-
-        fpsLabel =
-            TextView(this).apply {
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                setPadding(dp(8), dp(4), dp(8), dp(4))
-                background = roundedBackground(alpha = 90)
-            }
-        overlay.addView(
-            fpsLabel,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                // Clears the shell body's POWER row (top ~19dp of the deck)
-                // so the pill never prints over it.
-            ).apply { topMargin = dp(34) },
-        )
-
-        // L / R shoulders
-        overlay.addView(
-            padButton("L", Input.L, 64, 40),
-            FrameLayout.LayoutParams(dp(64), dp(40), Gravity.TOP or Gravity.START).apply {
-                topMargin = dp(10)
-                leftMargin = dp(12)
-            },
-        )
-        overlay.addView(
-            padButton("R", Input.R, 64, 40),
-            FrameLayout.LayoutParams(dp(64), dp(40), Gravity.TOP or Gravity.END).apply {
-                topMargin = dp(10)
-                rightMargin = dp(12)
-            },
-        )
-
-        // D-pad (bottom-left cross)
-        val dpad = FrameLayout(this)
-        dpad.addView(padButton("▲", Input.UP, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-        dpad.addView(
-            padButton("▼", Input.DOWN, 56, 56),
-            FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL),
-        )
-        dpad.addView(padButton("◀", Input.LEFT, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER_VERTICAL or Gravity.START))
-        dpad.addView(padButton("▶", Input.RIGHT, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER_VERTICAL or Gravity.END))
-        overlay.addView(
-            dpad,
-            FrameLayout.LayoutParams(dp(168), dp(168), Gravity.CENTER_VERTICAL or Gravity.START).apply {
-                leftMargin = dp(16)
-            },
-        )
-
-        // ABXY diamond (bottom-right)
-        val abxy = FrameLayout(this)
-        abxy.addView(padButton("X", Input.X, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-        abxy.addView(padButton("B", Input.B, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
-        abxy.addView(padButton("Y", Input.Y, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER_VERTICAL or Gravity.START))
-        abxy.addView(padButton("A", Input.A, 56, 56), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER_VERTICAL or Gravity.END))
-        overlay.addView(
-            abxy,
-            FrameLayout.LayoutParams(dp(168), dp(168), Gravity.CENTER_VERTICAL or Gravity.END).apply {
-                rightMargin = dp(16)
-            },
-        )
-
-        // Center cluster: select / start / fast-forward / exit
-        val center =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-            }
-        center.addView(smallButton("SELECT") { bindHold(it, Input.SELECT) })
-        center.addView(smallButton("START") { bindHold(it, Input.START) })
-        center.addView(
-            smallButton("»»") { view ->
-                view.setOnClickListener {
-                    fastForwardEnabled = !fastForwardEnabled
-                    MelonEmulator.setFastForwardEnabled(fastForwardEnabled)
-                    (view as TextView).alpha = if (fastForwardEnabled) 1.0f else 0.75f
+    private fun handlePadInputEvent(events: List<InputEvent>) {
+        events.forEach { event ->
+            when (event) {
+                is InputEvent.Button -> {
+                    when (event.id) {
+                        KeyEvent.KEYCODE_BUTTON_A -> setPadInput(Input.A, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_B -> setPadInput(Input.B, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_X -> setPadInput(Input.X, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_Y -> setPadInput(Input.Y, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_L1 -> setPadInput(Input.L, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_R1 -> setPadInput(Input.R, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_START -> setPadInput(Input.START, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_SELECT -> setPadInput(Input.SELECT, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_L2 -> MelonEmulator.setMicrophoneEnabled(event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_THUMBL -> setPadInput(Input.HINGE, event.pressed)
+                        KeyEvent.KEYCODE_BUTTON_MODE -> Unit // No game menu yet (see above).
+                        else -> Unit
+                    }
                 }
-            },
-        )
-        center.addView(
-            smallButton("✕") { view ->
-                view.setOnClickListener { exitGame() }
-            },
-        )
-        overlay.addView(
-            center,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
-            ).apply { bottomMargin = dp(6) },
-        )
-
-        return overlay
-    }
-
-    private fun padButton(label: String, input: Input, widthDp: Int, heightDp: Int): TextView {
-        return TextView(this).apply {
-            text = label
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            alpha = 0.75f
-            background = roundedBackground(alpha = 110)
-            bindHold(this, input)
-        }
-    }
-
-    private fun smallButton(label: String, bind: (View) -> Unit): TextView {
-        return TextView(this).apply {
-            text = label
-            textSize = 11f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            alpha = 0.75f
-            background = roundedBackground(alpha = 90)
-            layoutParams =
-                LinearLayout.LayoutParams(dp(56), dp(34)).apply {
-                    leftMargin = dp(4)
-                    rightMargin = dp(4)
+                is InputEvent.DiscreteDirection -> {
+                    if (event.id == ComposeTouchLayouts.MOTION_SOURCE_DPAD) {
+                        handlePadDirection(event.direction)
+                    }
                 }
-            bind(this)
-        }
-    }
-
-    private fun bindHold(view: View, input: Input) {
-        view.setOnTouchListener { v, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    MelonEmulator.onInputDown(input)
-                    v.alpha = 1.0f
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    MelonEmulator.onInputUp(input)
-                    v.alpha = 0.75f
-                    true
-                }
-                else -> true
+                is InputEvent.ContinuousDirection -> Unit // The MELONDS deck has no sticks.
             }
         }
     }
 
-    private fun roundedBackground(alpha: Int): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(12).toFloat()
-            setColor(Color.argb(alpha, 40, 40, 40))
-        }
+    private fun setPadInput(input: Input, pressed: Boolean) {
+        if (pressed) MelonEmulator.onInputDown(input) else MelonEmulator.onInputUp(input)
     }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private fun handlePadDirection(direction: Offset) {
+        // PadKit's cross handler already reports y-up-positive (it negates
+        // the screen-space anchor), so up is +y here. The libretro path
+        // negates it back for the core's motion events; the engine's
+        // discrete inputs need no such step. Offset.Unspecified (no touch)
+        // and Offset.Zero (dead zone) compare false against every threshold
+        // below, so they correctly release all directions.
+        val wanted =
+            buildSet {
+                if (direction.x < -0.5f) add(Input.LEFT)
+                if (direction.x > 0.5f) add(Input.RIGHT)
+                if (direction.y > 0.5f) add(Input.UP)
+                if (direction.y < -0.5f) add(Input.DOWN)
+            }
+        (wanted - dpadPressed).forEach { MelonEmulator.onInputDown(it) }
+        (dpadPressed - wanted).forEach { MelonEmulator.onInputUp(it) }
+        dpadPressed.clear()
+        dpadPressed.addAll(wanted)
+    }
 
     private object NoOpRetroAchievementsCallback : RetroAchievementsCallback {
         override fun onAchievementPrimed(achievementId: Long) = Unit

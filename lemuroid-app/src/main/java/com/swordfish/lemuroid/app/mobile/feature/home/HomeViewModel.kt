@@ -13,9 +13,11 @@ import com.swordfish.lemuroid.app.shared.settings.StorageFrameworkPickerLauncher
 import com.swordfish.lemuroid.common.coroutines.combine
 import com.swordfish.lemuroid.lib.core.CoresSelection
 import com.swordfish.lemuroid.lib.library.CoreID
+import com.swordfish.lemuroid.lib.library.GameSystem
 import com.swordfish.lemuroid.lib.library.SystemID
 import com.swordfish.lemuroid.lib.library.db.RetrogradeDatabase
 import com.swordfish.lemuroid.lib.library.db.entity.Game
+import com.swordfish.lemuroid.lib.saves.StatesManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -35,6 +38,7 @@ class HomeViewModel(
     appContext: Context,
     retrogradeDb: RetrogradeDatabase,
     private val coresSelection: CoresSelection,
+    private val statesManager: StatesManager,
 ) : ViewModel() {
     companion object {
         const val CAROUSEL_MAX_ITEMS = 10
@@ -45,9 +49,10 @@ class HomeViewModel(
         val appContext: Context,
         val retrogradeDb: RetrogradeDatabase,
         val coresSelection: CoresSelection,
+        val statesManager: StatesManager,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return HomeViewModel(appContext, retrogradeDb, coresSelection) as T
+            return HomeViewModel(appContext, retrogradeDb, coresSelection, statesManager) as T
         }
     }
 
@@ -55,6 +60,11 @@ class HomeViewModel(
         val favoritesGames: List<Game> = emptyList(),
         val recentGames: List<Game> = emptyList(),
         val discoveryGames: List<Game> = emptyList(),
+        val allGames: List<Game> = emptyList(),
+        // Most recently used save slot per recently played game (1-based;
+        // absent when the game has no save states). Powers the
+        // "继续 · 存档 #n" line on the wide recent cards.
+        val recentSaveSlots: Map<Int, Int> = emptyMap(),
         val indexInProgress: Boolean = true,
         val showNoNotificationPermissionCard: Boolean = false,
         val showNoMicrophonePermissionCard: Boolean = false,
@@ -107,6 +117,8 @@ class HomeViewModel(
         favoritesGames: List<Game>,
         recentGames: List<Game>,
         discoveryGames: List<Game>,
+        allGames: List<Game>,
+        recentSaveSlots: Map<Int, Int>,
         indexInProgress: Boolean,
         notificationsPermissionEnabled: Boolean,
         showMicrophoneCard: Boolean,
@@ -118,6 +130,8 @@ class HomeViewModel(
             favoritesGames = favoritesGames,
             recentGames = recentGames,
             discoveryGames = discoveryGames,
+            allGames = allGames,
+            recentSaveSlots = recentSaveSlots,
             indexInProgress = indexInProgress,
             showNoNotificationPermissionCard = !notificationsPermissionEnabled,
             showNoMicrophonePermissionCard = showMicrophoneCard,
@@ -133,6 +147,8 @@ class HomeViewModel(
                     favoritesGames(retrogradeDb),
                     recentGames(retrogradeDb),
                     discoveryGames(retrogradeDb),
+                    allGames(retrogradeDb),
+                    recentSaveSlots(retrogradeDb),
                     indexingInProgress(appContext),
                     notificationsPermissionEnabledState,
                     microphoneNotification(retrogradeDb),
@@ -158,6 +174,41 @@ class HomeViewModel(
 
     private fun favoritesGames(retrogradeDb: RetrogradeDatabase) =
         retrogradeDb.gameDao().selectFirstFavorites(CAROUSEL_MAX_ITEMS)
+
+    private fun allGames(retrogradeDb: RetrogradeDatabase) =
+        retrogradeDb.gameDao().selectAll()
+
+    // Most recently used save slot (1-based) for each recently played game,
+    // from the save states of the core currently selected for that game's
+    // system. A game with no states (or an unresolvable core) simply has no
+    // entry; the UI shows plain "继续" for it.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun recentSaveSlots(retrogradeDb: RetrogradeDatabase): Flow<Map<Int, Int>> {
+        return recentGames(retrogradeDb)
+            .flatMapLatest { games ->
+                flow {
+                    val slots =
+                        games.mapNotNull { game ->
+                            val latestSlot =
+                                runCatching {
+                                    val coreID =
+                                        coresSelection
+                                            .getCoreConfigForSystem(GameSystem.findById(game.systemId))
+                                            .coreID
+                                    statesManager
+                                        .getSavedSlotsInfo(game, coreID)
+                                        .mapIndexedNotNull { index, info ->
+                                            if (info.exists) index + 1 to info.date else null
+                                        }
+                                        .maxByOrNull { it.second }
+                                        ?.first
+                                }.getOrNull()
+                            if (latestSlot != null) game.id to latestSlot else null
+                        }.toMap()
+                    emit(slots)
+                }.flowOn(Dispatchers.IO)
+            }
+    }
 
     private fun dsGamesCount(retrogradeDb: RetrogradeDatabase): Flow<Int> {
         return retrogradeDb.gameDao().selectSystemsWithCount()
